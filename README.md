@@ -19,7 +19,7 @@ The emulator takes the CSV output format from Open Data Communities and translat
 - Install the bundler gem `gem install bundler`
 - Install the package `bundle install`
 
-- Call: ruby depc.rb <target> <data directory path> <train/test split ratio>
+- Call: ruby depc.rb \<target\> \<data directory path\> \<train/test split ratio\>
   
     Target:                         target column name (written primarily for CURRENT_ENERGY_EFFICIENCY)
   
