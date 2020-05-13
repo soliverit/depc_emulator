@@ -12,6 +12,10 @@ The emulator takes the CSV output format from Open Data Communities and translat
 #### v0.1.2 (using sckit-learn GradientBoostingRegressor and https://github.com/soliverit/scikit_hp_tuner)
 
   **RMSE**: 4.418 **MAE**:  3.07  **R²**:   0.865
+ #### v0.1.2
+
+  **RMSE**: 4.26 **MAE**:  3.06  **R²**:   0.869
+  - **n_estimators**: 694, **learning_rate**: 0.0496, **min_samples_split**: 26, **min_samples_leaf**: 11, **min_weight_fraction_leaf**: 0.0133
 
 # Getting started
 
