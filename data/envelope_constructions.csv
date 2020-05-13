@@ -1,0 +1,30 @@
+Wall type Age band,,A,B,C,D,E,F,G,H,I,J,K,L
+Stone,Uninsulated,1.7,1.7,1.7,1.7,1.7,1,0.6,0.6,0.45,0.35,0.3,0.28
+Stone: sandstone or limestone as built,,1.7,1.7,1.7,1.7,1.7,1,0.6,0.6,0.45,0.35,0.3,0.28
+Solid brick as built,,1.7,1.7,1.7,1.7,1.7,1,0.6,0.6,0.45,0.35,0.3,0.28
+Stone/solid brick with 50 mm external or internal insulation,,0.55,0.55,0.55,0.55,0.55,0.45,0.35,0.35,0.3,0.25,0.21,0.21
+Stone/solid brick with 100 mm external or internal insulation,,0.32,0.32,0.32,0.32,0.32,0.28,0.24,0.24,0.21,0.19,0.17,0.16
+Stone/solid brick with 150 mm external or internal insulation,,0.23,0.23,0.23,0.23,0.23,0.21,0.18,0.18,0.17,0.15,0.14,0.14
+Stone/solid brick with 200 mm external or internal insulation,,0.18,0.18,0.18,0.18,0.18,0.17,0.15,0.15,0.14,0.13,0.12,0.12
+Cob (as built),,0.8,0.8,0.8,0.8,0.8,0.8,0.6,0.6,0.45,0.35,0.3,0.28
+Cob with 50 mm external or internal insulation,,0.4,0.4,0.4,0.4,0.4,0.4,0.35,0.35,0.3,0.25,0.21,0.21
+Cob with 100 mm external or internal insulation,,0.26,0.26,0.26,0.26,0.26,0.26,0.24,0.24,0.21,0.19,0.17,0.16
+Cob with 150 mm external or internal insulation,,0.2,0.2,0.2,0.2,0.2,0.2,0.18,0.18,0.17,0.15,0.14,0.14
+Cob with 200 mm external or internal insulation,,0.16,0.16,0.16,0.16,0.16,0.16,0.15,0.15,0.14,0.13,0.12,0.12
+Cavity as built,,1.5,1.5,1.5,1.5,1.5,1,0.6,0.6,0.45,0.35,0.3,0.28
+Unfilled cavity with 50 mm external or internal insulation,,0.53,0.53,0.53,0.53,0.53,0.45,0.35,0.35,0.3,0.25,0.21,0.21
+Unfilled cavity with 100 mm external or internal insulation,,0.32,0.32,0.32,0.32,0.32,0.3,0.24,0.24,0.21,0.19,0.17,0.16
+Unfilled cavity with 150 mm external or internal insulation,,0.23,0.23,0.23,0.23,0.23,0.21,0.18,0.18,0.17,0.15,0.14,0.14
+Unfilled cavity with 200 mm external or internal insulation,,0.18,0.18,0.18,0.18,0.18,0.17,0.15,0.15,0.14,0.13,0.12,0.12
+Filled cavity,,0.7,0.7,0.7,0.7,0.7,0.4,0.35,0.35,0.45,0.35,0.3,0.28
+Filled cavity with 50 mm external or internal insulation,,0.37,0.37,0.37,0.37,0.37,0.27,0.25,0.25,0.25,0.25,0.21,0.21
+Filled cavity with 100 mm external or internal insulation,,0.25,0.25,0.25,0.25,0.25,0.2,0.19,0.19,0.19,0.19,0.17,0.16
+Filled cavity with 150 mm external or internal insulation,,0.19,0.19,0.19,0.19,0.19,0.16,0.15,0.15,0.15,0.15,0.14,0.14
+Filled cavity with 200 mm external or internal insulation,,0.16,0.16,0.16,0.16,0.16,0.13,0.13,0.13,0.13,0.13,0.12,0.12
+Timber frame as built,,2.5,1.9,1.9,1,0.8,0.45,0.4,0.4,0.4,0.35,0.3,0.28
+Timber frame with internal insulation,,0.6,0.55,0.55,0.4,0.4,0.4,0.4,0.4,0.4,0.35,0.3,0.28
+System build as built,,2,2,2,2,1.7,1,0.6,0.6,0.45,0.35,0.3,0.28
+System build with 50 mm external or internal insulation,,0.6,0.6,0.6,0.6,0.55,0.45,0.35,0.35,0.3,0.25,0.21,0.21
+System build with 100 mm external or internal insulation,,0.35,0.35,0.35,0.35,0.35,0.32,0.24,0.24,0.21,0.19,0.17,0.16
+System build with 150 mm external or internal insulation,,0.25,0.25,0.25,0.25,0.25,0.21,0.18,0.18,0.17,0.15,0.14,0.14
+System build with 200 mm external or internal insulation,,0.18,0.18,0.18,0.18,0.18,0.17,0.15,0.15,0.14,0.13,0.12,0.12

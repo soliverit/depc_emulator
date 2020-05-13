@@ -1,0 +1,84 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    activesupport (4.0.0)
+      i18n (~> 0.6, >= 0.6.4)
+      minitest (~> 4.2)
+      multi_json (~> 1.3)
+      thread_safe (~> 0.1)
+      tzinfo (~> 0.3.37)
+    archive-tar-minitar (0.8)
+      minitar (~> 0.8)
+      minitar-cli (~> 0.8)
+    concurrent-ruby (1.1.6)
+    eps (0.3.4)
+      lightgbm (>= 0.1.7)
+      nokogiri
+    ffi (1.12.2-x64-mingw32)
+    hashie (4.1.0)
+    i18n (0.9.5)
+      concurrent-ruby (~> 1.0)
+    kmeans (0.1.1)
+    liblinear-ruby (1.0.3)
+    lightgbm (0.1.8)
+      ffi
+    mini_portile2 (2.4.0)
+    minitar (0.8)
+    minitar-cli (0.8)
+      minitar (~> 0.8.0)
+      powerbar (~> 1.0)
+    minitest (4.7.5)
+    multi_json (1.14.1)
+    nimbus (2.3.0)
+    nokogiri (1.10.9-x64-mingw32)
+      mini_portile2 (~> 2.4.0)
+    npy (0.2.0)
+      numo-narray
+      rubyzip
+    numo-narray (0.9.1.8)
+    parallel (1.19.1)
+    powerbar (1.0.18)
+      hashie (>= 1.1.0)
+    rann (0.2.8)
+      parallel (~> 1.12, >= 1.12.0)
+      ruby-graphviz (~> 1.2, >= 1.2.3)
+    rb-libsvm (1.4.3)
+    rexml (3.2.4)
+    ruby-dnn (1.1.6)
+      archive-tar-minitar
+      numo-narray
+      yard
+    ruby-fann (1.2.6)
+    ruby-graphviz (1.2.5)
+      rexml
+    ruby_linear_regression (0.1.5)
+    rubyzip (2.3.0)
+    tensorflow (0.1.2)
+      ffi
+      npy
+      numo-narray
+    thread_safe (0.3.6)
+    tzinfo (0.3.56)
+    xgb (0.3.1)
+      ffi
+    yard (0.9.25)
+
+PLATFORMS
+  x64-mingw32
+
+DEPENDENCIES
+  activesupport (= 4.0)
+  eps
+  kmeans
+  liblinear-ruby
+  nimbus
+  rann
+  rb-libsvm
+  ruby-dnn
+  ruby-fann
+  ruby_linear_regression
+  tensorflow
+  xgb
+
+BUNDLED WITH
+   2.1.4

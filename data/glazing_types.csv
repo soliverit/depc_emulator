@@ -1,0 +1,7 @@
+﻿LABEL,When,U_Value,g_Value
+single,,4.8,0.85
+double,After,2,0.76
+double,Before,3,0.72
+triple,,1.8,0.68
+secondary,,2.4,0.76
+not defined,,0,0
