@@ -1,3 +1,4 @@
+require "active_support"
 #################################################################
 # Struct containing generic error rates produced, currently		#
 # by PredictionSet's getError									#
