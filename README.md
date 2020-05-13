@@ -5,7 +5,7 @@ A base emulator for predicting domestic EPC ratings from data limited to those a
 depc.rb: Script for translating single climate region datasets from https:/opendatacommunities.org England and Wales domestic EPC register and generating a Gradient Boosting Regressor model through OllieMl's EPS (https://github.com/ankane/eps) wrapper
 
 # Overview
-The emulator takes the CSV output format from Open Data Communities and translates each entry into a set of features which enable prediction within a reasonable
+The emulator takes the CSV output format from Open Data Communities and translates each entry into a set of features which enable reasonable existing energy efficiency prediction.
 
 ### Performance
 
