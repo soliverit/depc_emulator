@@ -1,5 +1,5 @@
 # RdSAP domestic EPC emulator (prototype)
-A base emulator for predicting domestic EPC ratings from data limited to those available output certificates
+A base emulator for predicting domestic EPC ratings from data limited to those available from inputs retrievable from output certificates
 
 ### Features
 depc.rb: Script for translating single climate region datasets from https:/opendatacommunities.org England and Wales domestic EPC register and generating a Gradient Boosting Regressor model through OllieMl's EPS (https://github.com/ankane/eps) wrapper
