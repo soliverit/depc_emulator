@@ -35,8 +35,8 @@ class EPSRegressor < OllieMlSupervisedBase
 			}
 		}
 	end
-	def train
-		@lr ||= Eps::Regressor.new(@trainingData.getDataStructure(useHash), target: @target)
+	def train 
+		@lr ||= Eps::Model.new(@trainingData.getDataStructure(useHash), target: @target)
 	end
 	##
 	# OVERRIDDEN!

@@ -32,6 +32,7 @@ class PredictionSet
 	##
 	def push prediction
 		if (!@withError || prediction.hasError?)
+			
 			@set.push prediction 
 			@error = false
 		end

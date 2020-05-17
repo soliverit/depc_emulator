@@ -583,6 +583,11 @@ class RegressionDataSet
 	def << rgDataSet
 		join rgDataSet
 	end
+	def merge rgDataSet
+		rgDataSet.each{|data|
+			push data
+		}
+	end
 	def joinBy rgDataSet, feature
 		output	= self.class.new false, [rgDataSet.features, features].flatten.uniq
 		joinIndex = Hash[rgDataSet.hashedData.map{|data| [data[feature].to_s, data]}]
@@ -954,5 +959,22 @@ class RegressionDataSet
 			}
 		}
 		Lpr.hashToTable tbl
+	end
+	##
+	# Shuflle feature
+	#
+	# Shuffle the values of a feature column. I know it's mental but good for permutation 
+	# importance apparently
+	##
+	def shuffleFeatures featureSet
+		featureSet.each{|feature|
+			featureIDX	= features.find_index feature
+			temp 		= []
+			@hashedData.each{|data|	temp.push data[feature]}
+			temp.shuffle.each_with_index{|value, idx|
+				@hashedData[idx][feature] 	= value
+				@data[idx][featureIDX]		= value
+			}
+		}
 	end
 end

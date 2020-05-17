@@ -214,4 +214,27 @@ class OllieMlSupervisedBase < OllieMlBase
 	def translateFeatureValue value
 		value
 	end
+	def doPermutationImportance data, targets, predictionClass
+		output = {RMSE: {}, MAE: {}}
+		base	= false
+		[false, data.features].flatten.each{|feature|
+			if feature
+				backupFeature	= data.segregate [feature]
+				data.shuffleFeatures [feature]
+				
+			end
+			results 				= validateSet(data, targets, predictionClass).getError
+			output[:RMSE][feature]	= results.rmse
+			output[:MAE][feature]	= results.mae
+			# Resotre feature on dataset
+			data.dropFeatures [feature]
+			if feature
+				data << backupFeature
+			else
+				base = results.rmse
+			end
+			puts output[:RMSE][feature].to_s + "\t " + feature.to_s + "\t" + (results.rmse - base).to_s
+		}
+		output
+	end
 end
