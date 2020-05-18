@@ -16,6 +16,10 @@ class KNN < OllieMlSupervisedBase
 		@lr.fit trainingData, @trainingData.retrieveFeatureAsArray(@target)
 	end
 	def predict inputs
+		inputs.map!{|input| input if input}.compact!
 		@lr.predict(@normaliser.transform([inputs]))[0]
+	end
+	def getFeatureData rgDataSet
+		rgDataSet
 	end
 end

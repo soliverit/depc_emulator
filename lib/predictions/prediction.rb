@@ -3,7 +3,7 @@
 # regression model or whatever you plug this into.				#
 #################################################################
 class Prediction
-	attr_reader :expected
+	attr_reader :expected, :prediction, :machine
 	##
 	# input:		Features used in the prediction: Array[N-Features of associated model]
 	# prediction:	The predicted value from the emulator
@@ -22,10 +22,11 @@ class Prediction
 	#	  can be accommodated. So, all the properties have been replaced with accessors which
 	#	  can take an ID.
 	##
-	def initialize input, prediction, expected = nil
+	def initialize input, prediction, expected = nil, machine = false
 		@predictionSet	= prediction.class == Array ? prediction : [prediction]
 		@input 			= input
 		@expected		= expected
+		@machine		= machine
 	end
 	##
 	# Retrieve a copy of the predictions. Note: exists to accommodated

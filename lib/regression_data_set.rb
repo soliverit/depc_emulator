@@ -977,4 +977,26 @@ class RegressionDataSet
 			}
 		}
 	end
+	##
+	# Math and what not
+	##
+	def rmse target1, target2
+		summed	= 0
+		@hashedData.each{|data|
+			summed += (data[target1] - data[target2]) ** 2
+		}
+		(summed / length) ** 0.5
+	end
+	def average target
+		@hashedData.sum{|data| data[target]} / length
+	end
+	def squaredError target1, target2
+		@hashedData.sum{|data| (data[target1] - data[target2]) ** 2}
+	end
+	def r2 target, prediction
+		targetAvg	= average target
+		ssTotal		= squaredError target, prediction
+		ssRes		= @hashedData.sum{|data| (data[target] - targetAvg) ** 2}
+		1 - ssTotal / ssRes
+	end
 end

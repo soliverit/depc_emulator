@@ -10,27 +10,20 @@ require "./lib/ollie_ml_unsupervised_base.rb"
 #
 #######################################################
 class KMeans < OllieMlUnsupervisedBase
-	ELBOW_MODE			= :auto
+	ELBOW_MODE			= 4
 	DEFAULT_PARAMETERS 	= {
-		clusters: 			6,			# Numeric or :auto for elbowing
+		clusters: 			2,			# Numeric or :auto for elbowing
 		lowClusterCount:	3,
 		highClusterCount:	6,
 		scorer:				Proc.new{|a, b| a.to_s <=> b.to_s},
 		runs: 10
 	}
-	def initialize data, targets, parameters
+	def initialize data, parameters
 		super data, parameters
-		@targets 	= targets
 		DEFAULT_PARAMETERS.each{|key, value| @parameters[key] ||= value}
-	end
-	def scaler
-		
 	end
 	def labels
 		@parameters[:labels]
-	end
-	def trainingData
-		@trainingData.segregate @targets
 	end
 	##
 	# Training a Clusterer
@@ -43,11 +36,11 @@ class KMeans < OllieMlUnsupervisedBase
 		# or an array based on the :clusters property. ELBOW_MODE 
 		# is :auto.
 		##
-		if @parameters[:clusters] == ELBOW_MODE
-			testSeries = @parameters[:lowClusterCount]..@parameters[:highClusterCount]
-		else
-			testSeries	= [@parameters[:clusters]]
-		end
+		# if @parameters[:clusters] == ELBOW_MODE
+			# testSeries = @parameters[:lowClusterCount]..@parameters[:highClusterCount]
+		# else
+		testSeries	= [@parameters[:clusters]]
+		# end
 		##
 		# Elbow the series for however many then return the right machine.
 		#
@@ -69,12 +62,10 @@ class KMeans < OllieMlUnsupervisedBase
 		@lr.clusters rescue raise "KMeans not trained yet"
 	end
 	def predictSet rgDataSet
-		rgDataSet.injectFeatures({clusterID:0})
-		predictions = @lr.predict rgDataSet.segregate(@targets).getDataStructure(false)
-		i 			= 0
-		rgDataSet.apply{|data|
-			data[:clusterID] = predictions[i]
+		i 			= -1
+		rgDataSet.injectFeatureByFunction(:clusterID){|data|
 			i += 1
+			predict([features.map{|feature| data[feature]}]).first
 		}
 		rgDataSet
 	end
