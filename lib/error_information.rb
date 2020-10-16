@@ -20,12 +20,14 @@ class ErrorInformation
 	# @absMin:			Minimum absolute error. Numeric
 	# @absMax:			Maximum absolute error. Numeric
 	# @rmse:			Root mean squared error. Numeric
+	# @mae:				Mean absolute error. Numeric
+	# @mare:				Mean relative error
 	# @simple:			Mean error. Numeric (couldn't remember the word for mean during creation)
 	# @worstPrediction:	Prediction object with the highest absolute error
 	# @bestPrediction:	Prediction object with the lowest absolute error
 	# @predictionIndex:	The Prediction.predictionSet[] index the values are based on
 	##
-	def initialize pIndex, min, max, negativeMin, negativeMax, absMin, absMax,rmse, simple, mae, perMin, perMax, worstPrediction, bestPrediction, pass, fail
+	def initialize pIndex, min, max, negativeMin, negativeMax, absMin, absMax,relErr, rmse, simple, mae, perMin, perMax, worstPrediction, bestPrediction, pass, fail
 		@min				= min
 		@max				= max
 		@negativeMin		= negativeMin
@@ -37,6 +39,7 @@ class ErrorInformation
 		@rmse				= rmse
 		@simple				= simple
 		@mae				= mae
+		@mare				= relErr
 		@worstPrediction	= worstPrediction
 		@bestPrediction 	= bestPrediction
 		@pass				= pass
@@ -115,6 +118,9 @@ class ErrorInformation
 		print("\n")
 		print(LRPrintHelper.pad "RMSE")
 		print(LRPrintHelper.pad @rmse.round(3))
+		print("\n")
+		print(LRPrintHelper.pad "RMAE")
+		print(LRPrintHelper.pad @mare.round(3))
 		if @pass
 			print("\n--- Classifer score ---\n")
 			print(LRPrintHelper.pad "Passed")

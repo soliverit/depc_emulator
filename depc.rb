@@ -10,6 +10,8 @@
 ### Native 
 require "json"
 
+# Debug dumping stuff
+require "yaml"
 ### Project 
 #Prettify console outputs
  ################################
@@ -136,11 +138,16 @@ wallThicknessData= RegressionDataSet.parseGemCSV WALL_THICKNESS_PATH
 ################################
 # Feature extraction
 ################################
+# Occupants
+rgDataSet.injectFeatureByFunction(:OCCUPANTS){|data|
+	building = Building.new data
+	building.occupants
+}
 ## Site level
 # Construction age band
 Lpr.d "Do construction age band to ENUM"
 labelKey		= ageBandDataSet.features.first #Hack and slash (worry about these later)
-rgDataSet		= rgDataSet.select{|data| ! data[:CONSTRUCTION_AGE_BAND].match(/INVALID|NO DATA/i) && data[:CONSTRUCTION_AGE_BAND] != ""}
+rgDataSet		= rgDataSet.select{|data| !data[:CONSTRUCTION_AGE_BAND].match(/INVALID|NO DATA/i) && data[:CONSTRUCTION_AGE_BAND] != ""}
 rgDataSet.injectFeatureByFunction(:AGE_LABEL){|data|
 	ageRecord	= ageBandDataSet.find{|ageData| data[:CONSTRUCTION_AGE_BAND].match(ageData[labelKey].to_s)}
 	ageRecord[:BAND]
@@ -149,7 +156,7 @@ rgDataSet.injectFeatureByFunction(:AGE_INDEX){|data|
 	ageRecord	= ageBandDataSet.find{|ageData| data[:CONSTRUCTION_AGE_BAND].match(ageData[labelKey].to_s)}
 	ageRecord[:INDEX]
 }
-rgDataSet.dropFeatures [:CONSTRUCTION_AGE_BAND]
+
 # Energy tariff (Dual or Single (don't worry abuot more for now)
 rgDataSet.apply{|data|
 	case data[:ENERGY_TARIFF]
@@ -188,11 +195,7 @@ rgDataSet.apply{|data|
 		data[:MAINS_GAS_FLAG] = data[:MAIN_FUEL].to_s.match(/gas/i) ? 1 : 0
 	end
 }
-# Occupants
-rgDataSet.injectFeatureByFunction(:OCCUPANTS){|data|
-	building = Building.new data
-	building.occupants
-}
+
 
 
 # Main fuel

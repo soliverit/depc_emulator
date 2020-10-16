@@ -1,13 +1,26 @@
 class Building
+	##
+	# TEMPORARY!!!!!!!!!!!!!
+	##
+	attr_reader :data, :corrupt
+	################
 	LIGHTING_GAINS_BASE		= 59.73	# From SAP doc Appendix L
 	APPLIANCE_GAINS_BASE	= 207.8 #L2 Appendix L
 	METABOLIC_RATE			= 60.0	# From SAP doc 
 	HEAT_LOSSES				= -40.0	# From SAP doc
+	QUALITY_ENUMS 			= ["Very Poor", "Poor", "Average", "Good", "Very Good"]
+	QUALITY_FEATURES		= [:SHEATING_ENERGY_EFF, :HOT_WATER_ENERGY_EFF,						
+								:LIGHTING_ENERGY_EFF, :ROOF_ENERGY_EFF, 
+								:WALLS_ENERGY_EFF, :WINDOWS_ENERGY_EFF, 
+								:MAINHEAT_ENERGY_EFF]
+	GLAZED_AREA_ENUMS	= ["NO DATA!","Less Than Typical", "Normal",
+						 "More Than Normal","Much More Than Normal"]
+	HEAT_LOSS_CORRIDOOR_ENUMS = [ "heated corridor", "unheated corridor"]
 	### 
 	# Static stuff
 	###
 	class BuildingReference
-		attr_reader :ageBandDataSet, :windowParams, :glazingTypes, :roofTypes, :floorTypes, :wallTypes, :thermalBData, :heatingAdjData, :wallThicknessData
+		attr_reader :ageBandDataSet, :windowParams, :glazingTypes, :roofTypes, :floorTypes, :wallTypes, :thermalBData, :heatingAdjData, :wallThicknessData, :heatingControls
 		TEMP_PATH			= "/temp.csv"
 		AGE_BAND_PATH		= "/age_band_lookup.csv"
 		WINDOW_PARAMS_PATH	= "/window_parameters.csv"
@@ -18,23 +31,33 @@ class Building
 		THERMAL_BRIDGE_PATH	= "/thermal_bridging.csv"
 		HEATING_ENUMS_PATH	= "/heating_table_4e.csv"
 		WALL_THICKNESS_PATH	= "/wall_thickness.csv"
+		HEAT_CONTROL_PATH	= "/heating_controls.csv"
+		DATA_DIR_PATH		= "./data/"
 		def initialize path
 			@path				= path
 			@ageBandDataSet		= RegressionDataSet.parseGemCSV @path + AGE_BAND_PATH
 			@windowParams		= RegressionDataSet.parseGemCSV @path + WINDOW_PARAMS_PATH
 			@glazingTypes		= RegressionDataSet.parseGemCSV @path + GLAZING_TYPES_PATH
-			puts @glazingTypes.to_json
 			@roofTypes			= RegressionDataSet.parseGemCSV @path + ROOF_TYPES_PATH
 			@floorTypes			= RegressionDataSet.parseGemCSV @path + FLOOR_TYPES_PATH
 			@wallTypes			= RegressionDataSet.parseGemCSV @path + WALL_TYPES_PATH
 			@thermalBData		= RegressionDataSet.parseGemCSV @path + THERMAL_BRIDGE_PATH
 			@heatingAdjData		= RegressionDataSet.parseGemCSV @path + HEATING_ENUMS_PATH
 			@wallThicknessData	= RegressionDataSet.parseGemCSV @path + WALL_THICKNESS_PATH
+			@heatingControls	= RegressionDataSet.parseGemCSV @path + HEAT_CONTROL_PATH
+			@corrupt			= false
 		end
 	end
-	@@reference = false
-	def self.referenceData path
-		@@reference ||= BuildingReference.new path
+	def extractFeatures features
+		Hash[features.map{|feature|
+			[ feature, send(feature)]
+		}]
+	end
+	def errors?
+		@corrupt
+	end
+	def reference
+		@@reference ||= BuildingReference.new BuildingReference::DATA_DIR_PATH 
 	end
 	######
 	# Initialise
@@ -64,9 +87,11 @@ class Building
 	end
 	##
 	# Internal gains from lighting, appliances and people
+	#
+	#	WARNING: No idea what losses were but no time to worry.
 	##
 	def internalGains
-		occupants * METABOLIC_RATE + lighting + appliances - losses
+		occupants * METABOLIC_RATE + lighting + appliances # - losses
 	end
 	##
 	# Heat losses
@@ -99,13 +124,18 @@ class Building
 	############################################
 	### Age stuff ###
 	def findAge
-		@foundAge ||= BuildingReference.ageBandDataSet.find{|ageData| data[:CONSTRUCTION_AGE_BAND].match(ageData[labelKey].to_s)}
+		@foundAge ||= reference.ageBandDataSet.find{|ageData| 
+			@data[:CONSTRUCTION_AGE_BAND].match(ageData[:LABEL].to_s)
+		}
 	end
 	def ageIndex
 		findAge[:INDEX]
 	end
 	def ageLabel
 		findAge[:LABEL]
+	end
+	def ageBand
+		findAge[:BAND]
 	end
 	def ageGroup
 		ageIndex / 4
@@ -115,30 +145,41 @@ class Building
 		@data[:PROPERTY_TYPE]
 	end
 	def mainFuelFactor
-		case data[:MAIN_FUEL]
+		@mainFuelFactor ||= case @data[:MAIN_FUEL]
 		when /electricity/i
-			data[:MAIN_FUEL] = 0.519
+			 0.519
 		when /lpg/i
-			data[:MAIN_FUEL] = 0.245
+			 0.245
 		when /oil/
-			data[:MAIN_FUEL] = 0.297
+			 0.297
 		when /gas/i
-			data[:MAIN_FUEL] = 0.216
+			 0.216
 		when /dual/i
-			data[:MAIN_FUEL] = 0.206
+			 0.206
 		when /smokeless/i
-			data[:MAIN_FUEL] = 0.392
+			 0.392
 		when /coal/i
-			data[:MAIN_FUEL] = 0.291
+			 0.291
 		when /no heating/i
-			data[:MAIN_FUEL] = 0
+			 0
 		when /community/i
-			data[:MAIN_FUEL] = 0.24
+			 0.24
 		else
-			data[:MAIN_FUEL] = -1	
+			 -1	
 		end
 	end
 	def doBuildingStates
+		##
+		# First error case: Can't find age
+		##
+		if ! findAge
+			@corrupt = "Error: Couldn't find age"
+			return
+		end
+		@data[:IS_MID] 		= 0
+		@data[:IS_END] 		= 0
+		@data[:IS_ENCLOSED]	= 0
+		@data[:IS_DETACHED]	= 0
 		case @data[:BUILT_FORM].to_s
 		when "Detached"
 			@data[:IS_DETACHED] = 1
@@ -181,31 +222,46 @@ class Building
 		case @data[:MECHANICAL_VENTILATION]
 		when "mechanical, extract only"
 			@data[:MECHANICAL_EXTRACT] 		= 1
+			@data[:MECHANICAL_SUPPLY] 		= 0
 		when  "mechanical, supply and extract"
 			@data[:MECHANICAL_EXTRACT] 		= 1
 			@data[:MECHANICAL_SUPPLY] 		= 1	
+		else 
+			@data[:MECHANICAL_EXTRACT] 		= 0
+			@data[:MECHANICAL_SUPPLY] 		= 0
 		end
 		# Glazing
 		if @data[:GLAZED_TYPE].match(/double/i)
-		puts @glazingTypes
-			gType = @glazingTypes.find{|gType| 
+			gType = reference.glazingTypes.find{|gType| 
 					@data[:GLAZED_TYPE].downcase.match(/double/i) && 
 					@data[:GLAZED_TYPE].downcase.match(gType[:When].downcase)
 			}
+		elsif @data[:GLAZED_TYPE].match(/invalid|not def|no data/i)
+			@corrupt = "Error: Glazed type: #{@data[:GLAZED_TYPE]}"
+			return
 		else
-			gType = @glazingTypes.find{|gType| @data[:GLAZED_TYPE].downcase.match(gType[labelKey])}
+			gType = reference.glazingTypes.find{|gType|  @data[:GLAZED_TYPE].downcase.match(gType[:LABEL])}
 		end
+		unless gType
+			gType = {U_Value: 0, g_Value: 0}
+		end
+
 		@data[:GLASS_U_VALUE] = gType[:U_Value]
 		@data[:GLASS_G_VALUE] = gType[:g_Value]
+		
 		case @data[:GLAZED_AREA]
 		when /less/i
 			-1
-		when /normal/i
-			0
 		when /more/i
 			1
+		when /normal/i
+			0
+		else
+			0
 		end
 		### Constructions 
+		roofAgeRecord = reference.roofTypes.find{|rData|
+			findAge[:BAND] == rData[:BAND]}
 		case @data[:ROOF_DESCRIPTION]
 		when /pitch/i
 			@data[:ROOF_U_VALUE] = roofAgeRecord[:U_Value_Pitched]
@@ -216,7 +272,8 @@ class Building
 		else /other dwelling/ # Adiabtic 
 			@data[:ROOF_U_VALUE] = 0
 		end
-		
+
+		floorType = reference.floorTypes.find{|fData|fData[:LABEL] == @data[:AGE_BAND]}
 		case @data[:FLOOR_DESCRIPTION]
 		when /no\s|assumed|insulated/i
 			@data[:FLOOR_U_VALUE] = floorType[:U_Value_Unknown]
@@ -230,44 +287,57 @@ class Building
 			@data[:FLOOR_U_VALUE] = 0
 		end
 		
-		@data[:WALL_THICKNESS] = wallThicknessData.find{|wtData| @data[:WALLS_DESCRIPTION].match(wtData[labelKey])}[@data[:AGE_LABEL].to_sym] rescue -1
-	
-		if uValue = data[:WALLS_DESCRIPTION].to_s.match(/(0\.\d{1,3})/)
+		@data[:WALL_THICKNESS] = reference.wallThicknessData.find{|wtData|
+			@data[:WALLS_DESCRIPTION].match(wtData[:Key])}[ageBand.to_sym] rescue -1
+		if uValue = @data[:WALLS_DESCRIPTION].to_s.match(/(0\.\d{1,3})/)
 			@data[:WALL_U_VALUE] 	= uValue[1].to_f
 		else
-			wallType = wallTypes.find{|wData|
-				@data[:WALLS_DESCRIPTION].downcase.match(wData[labelKey].downcase) && 
+			wallType = reference.wallTypes.find{|wData|
+				@data[:WALLS_DESCRIPTION].downcase.match(wData[:"Wall Type"].downcase) && 
 				@data[:WALLS_DESCRIPTION].downcase.match(wData[:Insulation].downcase)
 			}
+			unless wallType
+				@corrupt = "Error: Couldn't match construction type"
+				return	
+			end
 			begin
-				@data[:WALL_U_VALUE] = wallType[data[:AGE_LABEL].to_sym]
-			rescue
+				@data[:WALL_U_VALUE] = wallType[ageBand.to_sym]
+			rescue Exception => e
+				puts e
 				@data[:WALL_U_VALUE] = -1
 			end
 		end
-		@data[:THERMAL_BRIDGING_FACTOR] = thermalBData.find{|tbData| tbData[labelKey] == @data[:AGE_LABEL]}[:FACTOR]
+		@data[:THERMAL_BRIDGING_FACTOR] = reference.thermalBData.find{|tbData| tbData[:LABEL] == @data[:AGE_LABEL]}[:FACTOR]
 		
-		windowFuncParams = windowParams.find{|wData| wData[labelKey] == data[:AGE_LABEL]}
-		case @data[:GLAZED_AREA]
+		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
+		factor = case @data[:GLAZED_AREA]
 		when /much less/i
-			factor = -1.4
+			-1.4
 		when /less/i
-			factor = -1.25
+			-1.25
 		when /normal/i
-			factor = 1.0
+			1.0
 		when /much more/i
-			factor = 1.4
+			1.4
 		when /more/i
-			factor = 1.25	
+			1.25	
+		else
+			0
 		end
 		#Identify building type
 		if @data[:PROPERTY_TYPE].match(/house|bungalow/i)
-			@data[:WINDOW_AREA] = @data[:TOTAL_FLOOR_AREA] * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
+			@data[:WINDOW_AREA] = area * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
 		else
 			@data[:WINDOW_AREA] = @data[:TOTAL_FLOOR_AREA] * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
 		end 
 		
 		@data[:WAR] = 1 - @data[:WINDOW_AREA] / @data[:TOTAL_FLOOR_AREA]
+		##
+		# Do Quality properties  (1 to 5, poor to excellent)
+		##
+		QUALITY_FEATURES.each{|qFeature|
+			@data[qFeature] = QUALITY_ENUMS.find_index @data[qFeature]
+		}
 	end
 	def isMid?
 		@data[:IS_MID]
@@ -282,14 +352,15 @@ class Building
 		@data[:IS_DETACHED]
 	end
 	def mainHeatingControls
-		puts "WARNING! Man heating controls doesn't enumerate yet!"
-		@data[:MAIN_HEATING_CONTROLS]
+		@heatingControlEnum ||= reference.heatingControls.findIndex{|data| 
+			@data[:MAIN_HEATING_CONTROLS] = data[:Measure]
+		}
 	end
 	def extensionCount
 		@data[:EXTENSION_COUNT] || 0
 	end
 	def isTopStoreyFlat?
-		@data|@data[:FLAT_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY].downcase == "y" ? 1 : 0
+		@data[:IS_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY].downcase == "y" ? 1 : 0
 	end
 	def iBasement?
 		@data[:IS_BASEMENT] 
@@ -299,25 +370,46 @@ class Building
 			data[:MAIN_HEATING_CONTROLS] == haData[labelKey]
 		}[:Temperature_Adjustment] rescue 0
 	end
-	def minGasFlag
-		@mainsGasFlag ||= case data[:MAINS_GAS_FLAG].to_s.downcase
+	def mainHeatEnergyEff
+		@data[:MAINHEAT_ENERGY_EFF]
+	end
+	def roofEnergyEff
+		@data[:ROOF_ENERGY_EFF]
+	end
+	def wallsEnergyEff
+		@data[:WALLS_ENERGY_EFF]
+	end
+	def mainsGasFlag
+		@mainsGasFlag ||= case @data[:MAINS_GAS_FLAG].to_s.downcase
 		when "y"
-			data[:MAINS_GAS_FLAG] = 1
+			 1
 		when "n"
-			data[:MAINS_GAS_FLAG] = 0
+			0
 		else
-			data[:MAINS_GAS_FLAG] = data[:MAIN_FUEL].to_s.match(/gas/i) ? 1 : 0
+			@data[:MAIN_FUEL].to_s.match(/gas/i) ? 1 : 0
 		end
+	end
+	def mechanicalExtract
+		@data[:MECHANICAL_EXTRACT]
+	end
+	def mechanicalSupply
+		@data[:MECHANICAL_SUPPLY]
 	end
 	def energyTariff
 		@energyTariff ||= case @data[:ENERGY_TARIFF]
 		when /single/i
-			data[:ENERGY_TARIFF] = 0
+			0
 		when /dual/i
-			data[:ENERGY_TARIFF] = 1
+			1
 		else
-			data[:ENERGY_TARIFF] = 0
+			0
 		end
+	end
+	def wallThickness
+		@data[:WALL_THICKNESS]
+	end
+	def wallUValue
+		@data[:WALL_U_VALUE]
 	end
 	def wetRooms
 		case @data[:NUMBER_HABITABLE_ROOMS]
@@ -368,6 +460,9 @@ class Building
 	def hasHotWaterCylinder?
 		@data[:HW_CYLINDER] 		||= @data[:HOTWATER_DESCRIPTION].match(/no cylinder/i) ? 0 : 1
 	end
+	def hwEnergyEff
+		@data[:HOT_WATER_ENERGY_EFF]
+	end
 	def hotWaterDescription
 		puts "WARNING Hot water description isn't enumerated"
 		@data[:HOTWATER_DESCRIPTION] 
@@ -380,6 +475,9 @@ class Building
 	end
 	def hasUnderfloorHeating?
 		@data[:UNDERFLOOR_HEATING]	||= @data[:MAINHEAT_DESCRIPTION].match(/underfloor/i) ? 1 : 0
+	end
+	def floorUValue
+		@data[:FLOOR_U_VALUE]
 	end
 	def secondHeatDescription
 		case @data[:SECONDHEAT_DESCRIPTION]
@@ -405,6 +503,15 @@ class Building
 			@data[:SECONDHEAT_DESCRIPTION] = -1
 		end
 	end
+	def energyEfficiency
+		@data[:CURRENT_ENERGY_EFFICIENCY]
+	end
+	def co2Emissions
+		@data[:CO2_EMISSIONS_CURRENT]
+	end
+	def energyConsumption
+		@data[:ENERGY_CONSUMPTION_CURRENT]
+	end
 	def mainHeatDescription
 		puts "WARNING Main heat description not enumerated"
 		@data[MAINHEAT_DESCRIPTION]
@@ -427,8 +534,15 @@ class Building
 	def wndowFloorArea
 		@data[:WAR]
 	end
-	
-	
+	def heatedRooms
+		@data[:NUMBER_HABITABLE_ROOMS]
+	end
+	def fireplaces
+		@data[:NUMBER_OPEN_FIREPLACES] || 0
+	end
+	def photoSupply
+		@data[:PHOTO_SUPPLY] || 0
+	end
 	
 	############################################
 	#	Retrofitting
