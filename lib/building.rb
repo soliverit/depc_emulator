@@ -8,7 +8,7 @@ class Building
 	APPLIANCE_GAINS_BASE	= 207.8 #L2 Appendix L
 	METABOLIC_RATE			= 60.0	# From SAP doc 
 	HEAT_LOSSES				= -40.0	# From SAP doc
-	QUALITY_ENUMS 			= ["Very Poor", "Poor", "Average", "Good", "Very Good"]
+	QUALITY_ENUMS 			= ["N/A", "Very Poor", "Poor", "Average", "Good", "Very Good"]
 	QUALITY_FEATURES		= [:SHEATING_ENERGY_EFF, :HOT_WATER_ENERGY_EFF,						
 								:LIGHTING_ENERGY_EFF, :ROOF_ENERGY_EFF, 
 								:WALLS_ENERGY_EFF, :WINDOWS_ENERGY_EFF, 
@@ -62,11 +62,14 @@ class Building
 	######
 	# Initialise
 	######
-	def initialize data
+	def clone 
+		self.class.new @data.clone, true
+	end
+	def initialize data, fromCache = false
 		@data 		= data
 		@original 	= data.dup
 		# Do this now  
-		doBuildingStates
+		doBuildingStates unless fromCache
 	end
 	def area
 		@data[:TOTAL_FLOOR_AREA]
@@ -108,8 +111,7 @@ class Building
 		else
 			lowEnergyLigthingCorrection = 1
 		end
-		lighting = LIGHTING_GAINS_BASE	+ (@data[:TOTAL_FLOOR_AREA] * occupants) ** 0.4714 * 
-						lowEnergyLigthingCorrection # From SAP doc
+		lighting = LIGHTING_GAINS_BASE	+ (@data[:TOTAL_FLOOR_AREA] * occupants) ** 0.4714 * lowEnergyLigthingCorrection # From SAP doc
 	end
 	# From Table 1b SAP doc
 	def occupants
@@ -168,12 +170,17 @@ class Building
 			 -1	
 		end
 	end
+	
 	def doBuildingStates
 		##
 		# First error case: Can't find age
 		##
 		if ! findAge
 			@corrupt = "Error: Couldn't find age"
+			return
+		end
+		if ! area || ! area.is_a?(Numeric) || area <=0 
+			@corrupt = "Zero area"
 			return
 		end
 		@data[:IS_MID] 		= 0
@@ -285,6 +292,9 @@ class Building
 			@data[:FLOOR_U_VALUE] = floorType[:U_Value_150mm]
 		when /other dwelling/i #Adiabatic
 			@data[:FLOOR_U_VALUE] = 0
+		else
+			@corrupt = "Unable to find Floor U Value"
+			return
 		end
 		
 		@data[:WALL_THICKNESS] = reference.wallThicknessData.find{|wtData|
@@ -300,14 +310,13 @@ class Building
 				@corrupt = "Error: Couldn't match construction type"
 				return	
 			end
-			begin
-				@data[:WALL_U_VALUE] = wallType[ageBand.to_sym]
-			rescue Exception => e
-				puts e
-				@data[:WALL_U_VALUE] = -1
-			end
+
+			@data[:WALL_U_VALUE] = wallType[ageBand.to_sym]
+
 		end
-		@data[:THERMAL_BRIDGING_FACTOR] = reference.thermalBData.find{|tbData| tbData[:LABEL] == @data[:AGE_LABEL]}[:FACTOR]
+		
+		@data[:MAIN_HEATING_CONTROLS] 	= 0 if @data[:MAIN_HEATING_CONTROLS].nil?
+		@data[:THERMAL_BRIDGING_FACTOR]	= reference.thermalBData.find{|tbData| tbData[:LABEL] == @data[:AGE_LABEL]}[:FACTOR]
 		
 		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
 		factor = case @data[:GLAZED_AREA]
@@ -328,10 +337,15 @@ class Building
 		if @data[:PROPERTY_TYPE].match(/house|bungalow/i)
 			@data[:WINDOW_AREA] = area * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
 		else
-			@data[:WINDOW_AREA] = @data[:TOTAL_FLOOR_AREA] * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
+			@data[:WINDOW_AREA] = area * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
 		end 
 		
-		@data[:WAR] = 1 - @data[:WINDOW_AREA] / @data[:TOTAL_FLOOR_AREA]
+		@data[:WAR] = 1 - @data[:WINDOW_AREA].to_f / @data[:TOTAL_FLOOR_AREA]
+		if @data[:WAR].nan?
+			@corrupt = true
+			puts "WAR is wrong #{@data[:WAR]}"
+			return
+		end
 		##
 		# Do Quality properties  (1 to 5, poor to excellent)
 		##
@@ -352,9 +366,26 @@ class Building
 		@data[:IS_DETACHED]
 	end
 	def mainHeatingControls
-		@heatingControlEnum ||= reference.heatingControls.findIndex{|data| 
-			@data[:MAIN_HEATING_CONTROLS] = data[:Measure]
+		@data[:HEATING_CONTROL_ENUM] ||= reference.heatingAdjData.find{|hcData| 
+			@data[:MAIN_HEATING_CONTROLS] == hcData[:ID]
 		}
+	end
+	def mainControllerDescription
+		@data[:MAINHEATCONT_DESCRIPTION]
+	end
+	def heatingControlIndex
+		return @data[:HEATING_CONTROL_INDEX] if @data[:HEATING_CONTROL_INDEX]
+		controls = mainHeatingControls
+		@data[:HEATING_CONTROL_INDEX] = if controls 
+			mainHeatingControls[:Control_Type]
+		else
+		################### Should probably be  0 or -1
+			0
+		end
+		
+	end
+	def setHeatingContronIndex value
+		@data[:HEATING_CONTROL_INDEX] = value
 	end
 	def extensionCount
 		@data[:EXTENSION_COUNT] || 0
@@ -362,25 +393,51 @@ class Building
 	def isTopStoreyFlat?
 		@data[:IS_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY].downcase == "y" ? 1 : 0
 	end
-	def iBasement?
+	def isBasement?
 		@data[:IS_BASEMENT] 
 	end
+	def trvs?
+		@data[:TEMP_ADJUSTMENT] != 0 && @data[:HEATING_CONTROL_INDEX] != 2
+	end
 	def temperatureAdjustment
-		@heatingAdjData.find{|haData| 
-			data[:MAIN_HEATING_CONTROLS] == haData[labelKey]
-		}[:Temperature_Adjustment] rescue 0
+		return @data[:TEMP_ADJUSTMENT] if @data[:TEMP_ADJUSTMENT]
+		controls = mainHeatingControls
+		if controls
+			@data[:TEMP_ADJUSTMENT] = controls[:Temperature_Adjustment] 
+		else
+			@data[:TEMP_ADJUSTMENT] = 0
+		end
+	end
+	
+	def setTemperatureAdjustment value
+		@data[:TEMP_ADJUSTMENT] = value
 	end
 	def mainHeatEnergyEff
 		@data[:MAINHEAT_ENERGY_EFF]
 	end
+	def setMainHeatEnergyEff value
+		@data[:MAINHEAT_ENERGY_EFF] = value
+	end
 	def roofEnergyEff
 		@data[:ROOF_ENERGY_EFF]
+	end
+	def setRoofEnergyEff value
+		@data[:ROOF_ENERGY_EFF] = value
 	end
 	def wallsEnergyEff
 		@data[:WALLS_ENERGY_EFF]
 	end
+	def setWallsEnergyEff value
+		@data[:WALLS_ENERGY_EFF] = value
+	end
+	def windowsEnergyEff 
+		@data[:WINDOWS_ENERGY_EFF]
+	end
+	def setWindowsEnergyEff value
+		@data[:WINDOWS_ENERGY_EFF] = value
+	end
 	def mainsGasFlag
-		@mainsGasFlag ||= case @data[:MAINS_GAS_FLAG].to_s.downcase
+		@data[:MAINS_HAS_GAS_FLAG] ||= case @data[:MAINS_GAS_FLAG].to_s.downcase
 		when "y"
 			 1
 		when "n"
@@ -396,7 +453,7 @@ class Building
 		@data[:MECHANICAL_SUPPLY]
 	end
 	def energyTariff
-		@energyTariff ||= case @data[:ENERGY_TARIFF]
+		@data[:ENERGY_TARIFF_FLAG] ||= case @data[:ENERGY_TARIFF]
 		when /single/i
 			0
 		when /dual/i
@@ -411,8 +468,11 @@ class Building
 	def wallUValue
 		@data[:WALL_U_VALUE]
 	end
+	def wallUValue= value
+		@data[:WALL_U_VALUE] = value
+	end
 	def wetRooms
-		case @data[:NUMBER_HABITABLE_ROOMS]
+		@data[:WET_ROOMS] ||= case @data[:NUMBER_HABITABLE_ROOMS]
 		when 1..2
 			1
 		when 3..4
@@ -462,6 +522,9 @@ class Building
 	end
 	def hwEnergyEff
 		@data[:HOT_WATER_ENERGY_EFF]
+	end
+	def setHotwaterEnergyEff value
+		@data[:HOT_WATER_ENERGY_EFF] = value
 	end
 	def hotWaterDescription
 		puts "WARNING Hot water description isn't enumerated"
@@ -516,14 +579,14 @@ class Building
 		puts "WARNING Main heat description not enumerated"
 		@data[MAINHEAT_DESCRIPTION]
 	end
-	def qualityProperties
-		puts "WARNING you've no done the quality properties"
-	end
 	def glazedSizeFactor
 		@data[:GLAZED_SIZE_FACTOR]
 	end
-	def roofUValue
+	def roofUValue 
 		@data[:ROOF_U_VALUE]
+	end
+	def roofUValue= value
+		@data[:ROOF_U_VALUE] = value
 	end
 	def thermalBridgingFactor
 		@data[:THERMAL_BRIDGING_FACTOR]
@@ -531,7 +594,7 @@ class Building
 	def windowArea
 		@data[:WINDOW_AREA]
 	end
-	def wndowFloorArea
+	def windowFloorArea
 		@data[:WAR]
 	end
 	def heatedRooms
@@ -541,7 +604,7 @@ class Building
 		@data[:NUMBER_OPEN_FIREPLACES] || 0
 	end
 	def photoSupply
-		@data[:PHOTO_SUPPLY] || 0
+		@data[:PHOTO_SUPPLY_FLAG] ||= @data[:PHOTO_SUPPLY].to_s.match(/\d/) ? 1 : 0
 	end
 	
 	############################################
