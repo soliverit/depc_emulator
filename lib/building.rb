@@ -352,6 +352,8 @@ class Building
 		QUALITY_FEATURES.each{|qFeature|
 			@data[qFeature] = QUALITY_ENUMS.find_index @data[qFeature]
 		}
+		
+		@data[:NUMBER_OPEN_FIREPLACES] = 0 if @data[:NUMBER_OPEN_FIREPLACES].to_s.strip == ""
 	end
 	def isMid?
 		@data[:IS_MID]
@@ -601,7 +603,7 @@ class Building
 		@data[:NUMBER_HABITABLE_ROOMS]
 	end
 	def fireplaces
-		@data[:NUMBER_OPEN_FIREPLACES] || 0
+		@data[:NUMBER_OPEN_FIREPLACES]
 	end
 	def photoSupply
 		@data[:PHOTO_SUPPLY_FLAG] ||= @data[:PHOTO_SUPPLY].to_s.match(/\d/) ? 1 : 0
