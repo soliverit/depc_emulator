@@ -14,14 +14,6 @@ require "./lib/regression_data_set.rb"
 require "./lib/supervised/eps_regressor.rb"
 require "./lib/predictions/prediction.rb"
 
-Lpr.p "
- ################################
- # This script is designed to data points from
- # the domestic EPC historical results database
- # and methodology document to produce an 
- # emulator for RdSAP
- ################################md"
-
 ################################
 # Processs input arguments
 ################################
@@ -85,7 +77,6 @@ end
 ##
 # The machine features dataset
 trainingRGDatSet	= RegressionDataSet.new false, features
-require "yaml"
 # Populate the dataset
 rgDataSet.each{|record|
 	# The class designed for handling EPC records
@@ -96,7 +87,6 @@ rgDataSet.each{|record|
 	# Dataset figures out what to do with it
 	trainingRGDatSet.push buildingFeatures
 }
-
 ##
 # Shuffle the data then split it into its test/train compoents.
 ##
@@ -110,7 +100,6 @@ testData		= rgDataSets.last
 # Set the test targets and drop the target column (the true is for drop column)
 testTargets		= testData.retrieveFeatureAsArray target, true
 
-trainData.toCSV "SHOE.csv"
 ################################
 # Generate a machine
 ################################

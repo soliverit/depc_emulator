@@ -17,7 +17,7 @@ class Building
 						 "More Than Normal","Much More Than Normal"]
 	HEAT_LOSS_CORRIDOOR_ENUMS = [ "heated corridor", "unheated corridor"]
 	### 
-	# Static stuff
+	# Reference data struct. Stores all ./data/<reference>.csv data
 	###
 	class BuildingReference
 		attr_reader :ageBandDataSet, :windowParams, :glazingTypes, :roofTypes, :floorTypes, :wallTypes, :thermalBData, :heatingAdjData, :wallThicknessData, :heatingControls
@@ -48,14 +48,27 @@ class Building
 			@corrupt			= false
 		end
 	end
+	##
+	# Extract features.
+	#
+	# Get the features from the building that are relevant to the regressor
+	# you're creating. Returns hash of features which can be pushed straight
+	# to the RegressionDataSet holding the training/input data
+	##
 	def extractFeatures features
 		Hash[features.map{|feature|
 			[ feature, send(feature)]
 		}]
 	end
+	##
+	# Get Boolean model has errors?
+	##
 	def errors?
 		@corrupt
 	end
+	##
+	# Retrieve or define the BuildingReference class
+	##
 	def reference
 		@@reference ||= BuildingReference.new BuildingReference::DATA_DIR_PATH 
 	end
@@ -65,15 +78,18 @@ class Building
 	def clone 
 		self.class.new @data.clone, true
 	end
+	##
+	# data:	Hash of data from the certificates.csv file of the county/region
+	##
 	def initialize data, fromCache = false
 		@data 		= data
 		@original 	= data.dup
 		# Do this now  
 		doBuildingStates unless fromCache
 	end
-	def area
-		@data[:TOTAL_FLOOR_AREA]
-	end
+	##
+	# Subscripted accessor for the @data hash. Return whatever's there
+	##
 	def [] key
 		@data[key]
 	end
@@ -130,56 +146,19 @@ class Building
 			@data[:CONSTRUCTION_AGE_BAND].match(ageData[:LABEL].to_s)
 		}
 	end
-	def ageIndex
-		findAge[:INDEX]
-	end
-	def ageLabel
-		findAge[:LABEL]
-	end
-	def ageBand
-		findAge[:BAND]
-	end
-	def ageGroup
-		ageIndex / 4
-	end
-	#####
-	def propertyType
-		@data[:PROPERTY_TYPE]
-	end
-	def mainFuelFactor
-		@mainFuelFactor ||= case @data[:MAIN_FUEL]
-		when /electricity/i
-			 0.519
-		when /lpg/i
-			 0.245
-		when /oil/
-			 0.297
-		when /gas/i
-			 0.216
-		when /dual/i
-			 0.206
-		when /smokeless/i
-			 0.392
-		when /coal/i
-			 0.291
-		when /no heating/i
-			 0
-		when /community/i
-			 0.24
-		else
-			 -1	
-		end
-	end
+
 	##
 	# Stuff that's unaviodable for the first versino 
 	# of the building
 	##
 	def doBuildingStates
+	
 		##
 		# Don't do it twice. Doesn't matter where the flag's switched, here.
 		##
 		return if @buildingStatesDone
 		@buildingStatesDone	= true
+		
 		##
 		# First error case: Can't find age
 		##
@@ -187,6 +166,7 @@ class Building
 			@corrupt = "Error: Couldn't find age"
 			return
 		end
+		
 		##
 		# Fail if area is null, can't be converted to a number
 		# or is Zero (or less)
@@ -195,6 +175,7 @@ class Building
 			@corrupt = "Zero area"
 			return
 		end
+		
 		##
 		# Home position amongst surrounding buildings.
 		#
@@ -211,6 +192,7 @@ class Building
 		@data[:IS_ENCLOSED]	= 0
 		# Is home/bungalow
 		@data[:IS_DETACHED]	= 0
+		
 		##
 		# Define these properties.
 		#
@@ -234,6 +216,7 @@ class Building
 			@data[:IS_END] 		= 1
 			@data[:IS_ENCLOSED] = 1
 		end
+		
 		##
 		# Do floor level features
 		##
@@ -247,6 +230,7 @@ class Building
 		else
 			@data[:FLOOR_LEVEL] = 1
 		end
+		
 		##
 		# Do heat loss corridors.
 		##
@@ -260,6 +244,7 @@ class Building
 		else
 			@data[:HEAT_LOSS_CORRIDOOR] = HEAT_LOSS_CORRIDOOR_ENUMS.find_index @data[:HEAT_LOSS_CORRIDOOR]
 		end
+		
 		##
 		# Do lighting stuff
 		##
@@ -267,6 +252,7 @@ class Building
 		if ! @data[:LOW_ENERGY_LIGHTING].to_s.match(/\d/) 
 			@data[:LOW_ENERGY_LIGHTING] 	= 0
 		end
+		
 		##
 		# Do ventilation strategy stuff.
 		#
@@ -283,6 +269,7 @@ class Building
 			@data[:MECHANICAL_EXTRACT] 		= 0
 			@data[:MECHANICAL_SUPPLY] 		= 0
 		end
+		
 		##
 		# Do glazing stuff
 		#
@@ -312,12 +299,14 @@ class Building
 		# Set glazing thermal properties.
 		@data[:GLASS_U_VALUE] = gType[:U_Value]
 		@data[:GLASS_G_VALUE] = gType[:g_Value]
+		
 		##
 		# Do windows
 		##
 		# Find RdSAP windows parameters reference
 		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
 		factor = case @data[:GLAZED_AREA]
+		
 		##
 		# Assign a reasonable factor for the scaling.
 		##
@@ -358,6 +347,7 @@ class Building
 		else /other dwelling/ # Adiabtic 
 			@data[:ROOF_U_VALUE] = 0
 		end
+		
 		##
 		# Do floor stuff. the SAP reference
 		##
@@ -379,6 +369,7 @@ class Building
 			@corrupt = "Unable to find Floor U Value"
 			return
 		end
+		
 		##
 		# Do wall stuff. Taken from the SAP reference
 		##
@@ -420,23 +411,119 @@ class Building
 		# Set heating controls to zero if there's none defined
 		@data[:MAIN_HEATING_CONTROLS] 	= 0 if @data[:MAIN_HEATING_CONTROLS].nil?
 
-		
-		
+		##
+		# Window to floor area ratio.
+		#
+		# Wall to floor area ratio is a ideal feature but wall area isn't
+		# available. 
+		##
+		# Attempt to set the window to floor area ratio
 		@data[:WAR] = 1 - @data[:WINDOW_AREA].to_f / @data[:TOTAL_FLOOR_AREA]
+		# If something went wrong then total floor area is undefined in certificates.csv
 		if @data[:WAR].nan?
 			@corrupt = true
 			puts "WAR is wrong #{@data[:WAR]}"
 			return
 		end
+		
 		##
 		# Do Quality properties  (1 to 5, poor to excellent)
+		#
+		# Typically, these would be categorical features -
+		# multiple feature keys for the same feature, each key for a Boolean value
 		##
 		QUALITY_FEATURES.each{|qFeature|
 			@data[qFeature] = QUALITY_ENUMS.find_index @data[qFeature]
 		}
-		
+		##
+		# Finally, do open fire places
+		##
 		@data[:NUMBER_OPEN_FIREPLACES] = 0 if @data[:NUMBER_OPEN_FIREPLACES].to_s.strip == ""
 	end
+	######
+	# Feature extraction methods
+	#
+	# The feature extraction process uses an input set of feature names which
+	# correspond with either a direct property in @data or a derivable value.
+	# In any case, we don't want to have the feature extraction check whether
+	# it should reference @data in some cases and functions for others. So, 
+	# instead we give each feature a dedicated Getter method and the extractFeatures
+	# function calls the method.
+	#
+	# Note: We define as many static features as possible in @data so when we
+	# want to perform a retrofit on the Building we don't need to reprocess
+	# with doBuildingStates or static features
+	######
+	##
+	# Get floating point total floor area m²
+	##
+	def area
+		@data[:TOTAL_FLOOR_AREA]
+	end
+	##
+	# Get Integer building age index (representing A through L)
+	##
+	def ageIndex
+		findAge[:INDEX]
+	end
+	##
+	# Get string building age label 
+	##
+	def ageLabel
+		findAge[:LABEL]
+	end
+	##
+	# Get character building age band
+	##
+	def ageBand
+		findAge[:BAND]
+	end
+	##
+	# Get Integer age group
+	#
+	# Note:	This feature isn't used but it's been left in because it's
+	# 		an ok example of reducing features to meaningful intervals
+	##
+	def ageGroup
+		ageIndex / 4
+	end
+	##
+	# Get string building property type (house/bunglaw/flat)
+	##
+	def propertyType
+		@data[:PROPERTY_TYPE]
+	end
+	##
+	# Get floating point main fuel carbon emissions factor kgCO2/kWh
+	##
+	def mainFuelFactor
+		@mainFuelFactor ||= case @data[:MAIN_FUEL]
+		when /electricity/i
+			 0.519
+		when /lpg/i
+			 0.245
+		when /oil/
+			 0.297
+		when /gas/i
+			 0.216
+		when /dual/i
+			 0.206
+		when /smokeless/i
+			 0.392
+		when /coal/i
+			 0.291
+		when /no heating/i
+			 0
+		when /community/i
+			 0.24
+		else
+			 -1	
+		end
+	end
+
+	##
+	# Home situation
+	##
 	def isMid?
 		@data[:IS_MID]
 	end
@@ -449,40 +536,57 @@ class Building
 	def isDetached?
 		@data[:IS_DETACHED]
 	end
+	##
+	# Heating controls
+	##
+	# Find the heating controls reference data
 	def mainHeatingControls
 		@data[:HEATING_CONTROL_ENUM] ||= reference.heatingAdjData.find{|hcData| 
 			@data[:MAIN_HEATING_CONTROLS] == hcData[:ID]
 		}
 	end
+	# Retrive the heating control description
 	def mainControllerDescription
 		@data[:MAINHEATCONT_DESCRIPTION]
 	end
+	# Find the heating control's row ID in the heating control reference data
 	def heatingControlIndex
 		return @data[:HEATING_CONTROL_INDEX] if @data[:HEATING_CONTROL_INDEX]
 		controls = mainHeatingControls
 		@data[:HEATING_CONTROL_INDEX] = if controls 
 			mainHeatingControls[:Control_Type]
 		else
-		################### Should probably be  0 or -1
 			0
 		end
 		
 	end
-	def setHeatingContronIndex value
-		@data[:HEATING_CONTROL_INDEX] = value
-	end
+	##
+	# Get the number of extensions
+	##
 	def extensionCount
-		@data[:EXTENSION_COUNT] || 0
+		@data[:EXTENSION_COUNT] ||= 0
 	end
+	##
+	# Get Bool is top storey flat
+	##
 	def isTopStoreyFlat?
 		@data[:IS_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY].downcase == "y" ? 1 : 0
 	end
+	##
+	#  Get Bool is a basement flat
+	##
 	def isBasement?
 		@data[:IS_BASEMENT] 
 	end
+	##
+	# Get Bool heating outlets have TRVs
+	##
 	def trvs?
 		@data[:TEMP_ADJUSTMENT] != 0 && @data[:HEATING_CONTROL_INDEX] != 2
 	end
+	##
+	# Get floating point temperature adjustment for heating control set up
+	##
 	def temperatureAdjustment
 		return @data[:TEMP_ADJUSTMENT] if @data[:TEMP_ADJUSTMENT]
 		controls = mainHeatingControls
@@ -492,34 +596,34 @@ class Building
 			@data[:TEMP_ADJUSTMENT] = 0
 		end
 	end
-	
-	def setTemperatureAdjustment value
-		@data[:TEMP_ADJUSTMENT] = value
-	end
+	##
+	# Get Integer 0 to 5 Heating energy efficiency rating
+	##
 	def mainHeatEnergyEff
 		@data[:MAINHEAT_ENERGY_EFF]
 	end
-	def setMainHeatEnergyEff value
-		@data[:MAINHEAT_ENERGY_EFF] = value
-	end
+	##
+	# Get Integer roof Efficiency (0 to 5)
+	## 
 	def roofEnergyEff
 		@data[:ROOF_ENERGY_EFF]
 	end
-	def setRoofEnergyEff value
-		@data[:ROOF_ENERGY_EFF] = value
-	end
+	##
+	# Get Integer wall Efficiency rating (0 to 5)
+	## 
 	def wallsEnergyEff
 		@data[:WALLS_ENERGY_EFF]
 	end
-	def setWallsEnergyEff value
-		@data[:WALLS_ENERGY_EFF] = value
-	end
+	
+	##
+	# Get Integer  window Efficiency rating (0 to 5)
+	##
 	def windowsEnergyEff 
 		@data[:WINDOWS_ENERGY_EFF]
 	end
-	def setWindowsEnergyEff value
-		@data[:WINDOWS_ENERGY_EFF] = value
-	end
+	##
+	# Get Bool does the site have gas available
+	##
 	def mainsGasFlag
 		@data[:MAINS_HAS_GAS_FLAG] ||= case @data[:MAINS_GAS_FLAG].to_s.downcase
 		when "y"
@@ -530,12 +634,21 @@ class Building
 			@data[:MAIN_FUEL].to_s.match(/gas/i) ? 1 : 0
 		end
 	end
+	##
+	# Get Bool air extract is mechanical
+	##
 	def mechanicalExtract
 		@data[:MECHANICAL_EXTRACT]
 	end
+	##
+	# Get Bool air suplly is mechanical
+	##
 	def mechanicalSupply
 		@data[:MECHANICAL_SUPPLY]
 	end
+	##
+	# Get Bool energy tariff (single/dual)
+	##
 	def energyTariff
 		@data[:ENERGY_TARIFF_FLAG] ||= case @data[:ENERGY_TARIFF]
 		when /single/i
@@ -546,15 +659,27 @@ class Building
 			0
 		end
 	end
+	##
+	# Get Integer wall thickness mm
+	##
 	def wallThickness
 		@data[:WALL_THICKNESS]
 	end
+	##
+	# Get floating point wall U-Value W/m²k
+	##
 	def wallUValue
 		@data[:WALL_U_VALUE]
 	end
-	def wallUValue= value
-		@data[:WALL_U_VALUE] = value
+	##
+	# Get floating point roof U-Value W/m²K
+	##
+	def roofUValue
+		@data[:ROOF_U_VALUE]
 	end
+	##
+	# Number of rooms with non-heating hot water usage
+	##
 	def wetRooms
 		@data[:WET_ROOMS] ||= case @data[:NUMBER_HABITABLE_ROOMS]
 		when 1..2
@@ -571,61 +696,102 @@ class Building
 			6
 		end
 	end
+	##
+	# Get Bool het loos corridor present (mabye deprecated)
+	##
 	def heatLossCorridor
 		@data[:HEAT_LOSS_CORRIDOR]
 	end
+	##
+	# Get Integer floor level of flats
+	##
 	def floorLevel
 		@data[:FLOOR_LEVEL] 		||= 0
 	end
+	##
+	# Get Bool hot water pipe network is insulated
+	##
 	def hwPipeInsulation
 		@data[:HW_PIPE_INSULATION] 	||= ["J", "K", "L"].include?( data[:AGE_BAND]) ? 1 : 0
 	end
+	##
+	# Get Bool hot water is from district heating
+	##
 	def hwCommunity
 		@data[:HW_COMMUNITY] 		||= data[:HOTWATER_DESCRIPTION].match(/community/i) ? 1 : 0
 	end
+	##
+	# Get Bool hot water is served by instantaneous point of use system
+	##
 	def hwIsInstantaneous?
 		@data[:HW_IS_INSTANTANEOUS] ||= @data[:HOTWATER_DESCRIPTION].match(/instantaneous/i) ? 1 : 0
 	end
+	##
+	# Get Bool on-site solar water heating
+	##
 	def hasSolarWater?
 		@data[:HAS_SOLAR_WATER] 	||= @data[:HOTWATER_DESCRIPTION].match(/solar/i) ? 1 : 0
 	end
+	##
+	# Get Bool off peak hot water generation
+	##
 	def offPeakHotWater?
 		@data[:HW_IS_OFF_PEAK] 		||= @data[:HOTWATER_DESCRIPTION].match(/off(-| )peak/i) ? 1 : 0
 	end
+	##
+	# Get Bool hot water is gas-fired
+	##
 	def hwIsGas?
 		 @data[:HW_IS_GAS] 			||= @data[:HOTWATER_DESCRIPTION].match(/gas/i) ? 1 : 0
 	end
+	##
+	# Get percentage of space served by low-energy lighting
+	##
 	def lowEnergyLighting
 		@data[:LOW_ENERGY_LIGHTING]
 	end
+	##
+	# Get Bool hot water is from main heating system
+	##
 	def hwFromMainSystem?
 		@data[:HW_FROM_MAIN_SYSTEM]	||= @data[:HOTWATER_DESCRIPTION].match(/from main system/i) ? 1 : 0
 	end
-	def hasHotWaterCylinder?
-		@data[:HW_CYLINDER] 		||= @data[:HOTWATER_DESCRIPTION].match(/no cylinder/i) ? 0 : 1
-	end
+	##
+	# Get Integer hot water energy Efficiency rating (0 to 5)
+	## 
 	def hwEnergyEff
 		@data[:HOT_WATER_ENERGY_EFF]
 	end
-	def setHotwaterEnergyEff value
-		@data[:HOT_WATER_ENERGY_EFF] = value
-	end
-	def hotWaterDescription
-		puts "WARNING Hot water description isn't enumerated"
-		@data[:HOTWATER_DESCRIPTION] 
-	end
+	##
+	# Get Bool heating has a boiler
+	##
 	def heatingHasTank?
 		@data[:HAS_TANK] 			||= @data[:MAINHEAT_DESCRIPTION].match(/boiler|storage|immersion/i) ? 1: 0
 	end
+	##
+	# Get Bool has wet radiators
+	##
 	def hasRadiators?
 		@data[:HAS_RADIATORS] 		||= @data[:MAINHEAT_DESCRIPTION].match(/radiator/i) ? 1 : 0
 	end
+	##
+	# Get Bool home has underfloor heating
+	##
 	def hasUnderfloorHeating?
 		@data[:UNDERFLOOR_HEATING]	||= @data[:MAINHEAT_DESCRIPTION].match(/underfloor/i) ? 1 : 0
 	end
+	##
+	# Get floating point floot U-Value W/m²K
+	##
 	def floorUValue
 		@data[:FLOOR_U_VALUE]
 	end
+	##
+	# Get floating point second heating system feature. kgCO2/kWh
+	#
+	# This feature translates second heating into an
+	# emissions contributor. 
+	##
 	def secondHeatDescription
 		case @data[:SECONDHEAT_DESCRIPTION]
 		when /electricity/i
@@ -650,92 +816,113 @@ class Building
 			@data[:SECONDHEAT_DESCRIPTION] = -1
 		end
 	end
+	##
+	# Get integer base model energy efficiency rating 
+	## 
 	def energyEfficiency
 		@data[:CURRENT_ENERGY_EFFICIENCY]
 	end
+	##
+	# Get Integer base model carbon emissions kgCO2/m²
+	##
 	def co2Emissions
 		@data[:CO2_EMISSIONS_CURRENT]
 	end
+	##
+	# Get Integer base model energy consumption kWh/m²
+	##
 	def energyConsumption
 		@data[:ENERGY_CONSUMPTION_CURRENT]
 	end
-	def mainHeatDescription
-		puts "WARNING Main heat description not enumerated"
-		@data[MAINHEAT_DESCRIPTION]
-	end
+	##
+	# Get floating point glazing sise adjustment factor
+	##
 	def glazedSizeFactor
 		@data[:GLAZED_SIZE_FACTOR]
 	end
-	def roofUValue 
-		@data[:ROOF_U_VALUE]
-	end
+	##
+	# Roof U-Value W/m²K
+	##
 	def roofUValue= value
 		@data[:ROOF_U_VALUE] = value
 	end
+	##
+	# Thermal bridiging W/mK
+	##
 	def thermalBridgingFactor
 		@data[:THERMAL_BRIDGING_FACTOR]
 	end
+	##
+	# Get floating point window total glazed area m²
+	##
 	def windowArea
 		@data[:WINDOW_AREA]
 	end
+	##
+	# Get integer window to floor rate m²
+	##
 	def windowFloorArea
 		@data[:WAR]
 	end
+	##
+	# Number of heated rooms
+	##
 	def heatedRooms
 		@data[:NUMBER_HABITABLE_ROOMS]
 	end
+	##
+	# Get Integer number of fireplaces
+	##
 	def fireplaces
 		@data[:NUMBER_OPEN_FIREPLACES]
 	end
+	##
+	# On-site solar panels
+	##
 	def photoSupply
 		@data[:PHOTO_SUPPLY_FLAG] ||= @data[:PHOTO_SUPPLY].to_s.match(/\d/) ? 1 : 0
 	end
-	
-	############################################
-	#	Retrofitting
-	############################################
-	
-	
-	MIN_WALL_U_VALUE 	= 0.6
-	REP_WALL_U_VALUE	= 0.3
-	
-	MIN_FLOOR_U_VALUE	= 0.5
-	REP_FLOOR_U_VALUE	= 0.18
-	MIN_ROOF_U_VALUE	= 0.5
-	REP_ROOF_U_VALUE	= 0.18
-	
-	REP_HW_EFF			= 4
+	####
+	# Setters
 	##
-	# Replace low energy lightng 
-	##
-	def retrofitLightng 
-		if @data[:LOW_ENERGY_LIGHTING] != 0
-			@data[:LOW_ENERGY_LIGHTING] = 0
-		else
-			0
-		end
+	# Set heating control index (for retrofitting)
+	def setHeatingContronIndex value
+		@data[:HEATING_CONTROL_INDEX] = value
 	end
 	##
-	# Retrofit walls
+	# Set temperature adjustment value floating point (0 <= 3)
+	#
+	# Temperature adjustment is an adjustment to the
+	# space heating set point to reflect some heating
+	# control state. (for retrofitting)
 	##
-	def retrofitWalls u_value
-		if @data[:WALL_U_VALUE] > MIN_WALL_U_VALUE
-			@data[:WALL_U_VALUE] = REP_WALL_U_VALUE
-		end
+	def setTemperatureAdjustment value
+		@data[:TEMP_ADJUSTMENT] = value
 	end
-	def retrofitRoof u_value
-		if @data[:ROOF_U_VALUE] > MIN_ROOF_U_VALUE
-			@data[:ROOF_U_VALUE] = REP_ROOF_U_VALUE
-		end
+	# Set window Efficiency rating (for retrofitting) (0 to 5 Integer)
+	def setWindowsEnergyEff value
+		@data[:WINDOWS_ENERGY_EFF] = value
 	end
-	def retrofitFloors u_value
-		if @data[:FLOOR_U_VALUE] > MIN_FLOOR_U_VALUE
-			@data[:FLOOR_U_VALUE] = REP_FLOOR_U_VALUE
-		end
+	# Set heating Efficiency rating (0 to 5 Integer)
+	def setMainHeatEnergyEff value
+		@data[:MAINHEAT_ENERGY_EFF] = value
 	end
-	def replaceHotWater 
-		if @data[:HOT_WATER_ENERGY_EFF] < REP_HW_EFF
-			@data[:HOT_WATER_ENERGY_EFF] = REP_HW_EFF
-		end
+	# Set hot water Efficiency rating (0 to 5 integer)
+	def setHotwaterEnergyEff value
+		@data[:HOT_WATER_ENERGY_EFF] = value
+	end
+	# Set wall U-Vaue floating point W/m²K
+	def wallUValue= value
+		@data[:WALL_U_VALUE] = value
+	end
+	# Set wall energy Efficiency rating Integer (0 to 5)
+	def setWallsEnergyEff value
+		@data[:WALLS_ENERGY_EFF] = value
+	end
+	##
+	# Set roof Efficiency Integer (0 to 5)
+	##
+	def setRoofEnergyEff value
+		@data[:ROOF_ENERGY_EFF] = value
 	end
 end
