@@ -170,8 +170,16 @@ class Building
 			 -1	
 		end
 	end
-	
+	##
+	# Stuff that's unaviodable for the first versino 
+	# of the building
+	##
 	def doBuildingStates
+		##
+		# Don't do it twice. Doesn't matter where the flag's switched, here.
+		##
+		return if @buildingStatesDone
+		@buildingStatesDone	= true
 		##
 		# First error case: Can't find age
 		##
@@ -179,53 +187,91 @@ class Building
 			@corrupt = "Error: Couldn't find age"
 			return
 		end
+		##
+		# Fail if area is null, can't be converted to a number
+		# or is Zero (or less)
+		##
 		if ! area || ! area.is_a?(Numeric) || area <=0 
 			@corrupt = "Zero area"
 			return
 		end
+		##
+		# Home position amongst surrounding buildings.
+		#
+		# Note: these on their own don't completely define 
+		# the implied statues of these properties but they
+		# do tell the regressor something of value.
+		##
+		## Set defaults
+		# Mid terrace?
 		@data[:IS_MID] 		= 0
+		# End terrace
 		@data[:IS_END] 		= 0
+		# Is mid-mid terrace (4 of 6 surfaces internal)
 		@data[:IS_ENCLOSED]	= 0
+		# Is home/bungalow
 		@data[:IS_DETACHED]	= 0
+		##
+		# Define these properties.
+		#
+		# Note: Features don't necessarily align with
+		#		the real-world definition. Some times
+		#		it's enough to merge properties.
+		##
 		case @data[:BUILT_FORM].to_s
 		when "Detached"
 			@data[:IS_DETACHED] = 1
 		when "Mid-Terrace"
-			@data[:IS_MID] = 1
+			@data[:IS_MID] 		= 1
 		when "End-Terrace"
-			@data[:IS_END] = 1
+			@data[:IS_END] 		= 1
 		when "Semi-Detached"
-			@data[:IS_END] = 1
+			@data[:IS_END] 		= 1
 		when "Enclosed Mid-Terrace"
-			@data[:IS_MID] = 1
+			@data[:IS_MID]		= 1
 			@data[:IS_ENCLOSED] = 1
 		when "Enclosed End-Terrace"
-			@data[:IS_END] = 1
+			@data[:IS_END] 		= 1
 			@data[:IS_ENCLOSED] = 1
 		end
+		##
+		# Do floor level features
+		##
 		case @data[:FLOOR_LEVEL].to_s
 		when /basement/i
 			@data[:IS_BASEMENT] = 1
 		when /ground/i
 			@data[:FLOOR_LEVEL] = 0
 		when /top/i
-			@data[:IS_ROOF] = 1
+			@data[:IS_ROOF] 	= 1
 		else
 			@data[:FLOOR_LEVEL] = 1
 		end
-		### Corridors
+		##
+		# Do heat loss corridors.
+		##
+		# If there's no data, there's no corridor
 		if @data[:HEAT_LOSS_CORRIDOOR] == "NO DATA!"
 			@data[:HEAT_LOSS_CORRIDOOR] 	= 0
+		# Sekf explanatory
 		elsif @data[:HEAT_LOSS_CORRIDOOR] == "no corridor"
 			@data[:HEAT_LOSS_CORRIDOOR] 	= 0
+		# Otherwise look up the corridor type index
 		else
 			@data[:HEAT_LOSS_CORRIDOOR] = HEAT_LOSS_CORRIDOOR_ENUMS.find_index @data[:HEAT_LOSS_CORRIDOOR]
 		end
-		# Lighting
+		##
+		# Do lighting stuff
+		##
+		# If the low energy lighting property isn't defined, set it to 0
 		if ! @data[:LOW_ENERGY_LIGHTING].to_s.match(/\d/) 
 			@data[:LOW_ENERGY_LIGHTING] 	= 0
 		end
-		# Ventilation strategy
+		##
+		# Do ventilation strategy stuff.
+		#
+		# Figure out the ventilation strategy 
+		##
 		case @data[:MECHANICAL_VENTILATION]
 		when "mechanical, extract only"
 			@data[:MECHANICAL_EXTRACT] 		= 1
@@ -237,38 +283,71 @@ class Building
 			@data[:MECHANICAL_EXTRACT] 		= 0
 			@data[:MECHANICAL_SUPPLY] 		= 0
 		end
-		# Glazing
+		##
+		# Do glazing stuff
+		#
+		# Note:	This is mess. The first and default condition
+		#		can probably be merged. But, since we just 
+		#		processed the entire dataset, I'm not touching
+		#		it right now.
+		##
+		# If it's double, find the closest appropriate double glazing 
 		if @data[:GLAZED_TYPE].match(/double/i)
 			gType = reference.glazingTypes.find{|gType| 
 					@data[:GLAZED_TYPE].downcase.match(/double/i) && 
 					@data[:GLAZED_TYPE].downcase.match(gType[:When].downcase)
 			}
+		# If there's no glazing properties for a look up, fail gracefully
 		elsif @data[:GLAZED_TYPE].match(/invalid|not def|no data/i)
 			@corrupt = "Error: Glazed type: #{@data[:GLAZED_TYPE]}"
 			return
+		# Otherwise, do a less constrained lookup (than double)
 		else
 			gType = reference.glazingTypes.find{|gType|  @data[:GLAZED_TYPE].downcase.match(gType[:LABEL])}
 		end
+		# If we've got this far without defining gType, there's zero glazing
 		unless gType
 			gType = {U_Value: 0, g_Value: 0}
 		end
-
+		# Set glazing thermal properties.
 		@data[:GLASS_U_VALUE] = gType[:U_Value]
 		@data[:GLASS_G_VALUE] = gType[:g_Value]
-		
-		case @data[:GLAZED_AREA]
+		##
+		# Do windows
+		##
+		# Find RdSAP windows parameters reference
+		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
+		factor = case @data[:GLAZED_AREA]
+		##
+		# Assign a reasonable factor for the scaling.
+		##
+		when /much less/i
+			-1.4
 		when /less/i
-			-1
-		when /more/i
-			1
+			-1.25
 		when /normal/i
-			0
+			1.0
+		when /much more/i
+			1.4
+		when /more/i
+			1.25	
 		else
 			0
 		end
-		### Constructions 
+		#Identify building type, use it with the glazing lookup to calculate window area
+		if @data[:PROPERTY_TYPE].match(/house|bungalow/i)
+			@data[:WINDOW_AREA] = area * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
+		else
+			@data[:WINDOW_AREA] = area * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
+		end 
+		
+		###
+		# Do envelop materials stuff. the SAP reference
+		##
+		# Find the roof construction thermal properties reference
 		roofAgeRecord = reference.roofTypes.find{|rData|
 			findAge[:BAND] == rData[:BAND]}
+		# Identy the roof state flag. Set properties based on the type
 		case @data[:ROOF_DESCRIPTION]
 		when /pitch/i
 			@data[:ROOF_U_VALUE] = roofAgeRecord[:U_Value_Pitched]
@@ -279,8 +358,12 @@ class Building
 		else /other dwelling/ # Adiabtic 
 			@data[:ROOF_U_VALUE] = 0
 		end
-
+		##
+		# Do floor stuff. the SAP reference
+		##
+		# Find the floor construction thermal properties reference
 		floorType = reference.floorTypes.find{|fData|fData[:LABEL] == @data[:AGE_BAND]}
+		# Identy the floor state flag. Set properties based on the type
 		case @data[:FLOOR_DESCRIPTION]
 		when /no\s|assumed|insulated/i
 			@data[:FLOOR_U_VALUE] = floorType[:U_Value_Unknown]
@@ -296,49 +379,48 @@ class Building
 			@corrupt = "Unable to find Floor U Value"
 			return
 		end
-		
+		##
+		# Do wall stuff. Taken from the SAP reference
+		##
+		# Figure out wall thickness reference from the wall desc and building age
 		@data[:WALL_THICKNESS] = reference.wallThicknessData.find{|wtData|
 			@data[:WALLS_DESCRIPTION].match(wtData[:Key])}[ageBand.to_sym] rescue -1
+		# If the wall type explicitly defines a U-Value, use it
 		if uValue = @data[:WALLS_DESCRIPTION].to_s.match(/(0\.\d{1,3})/)
 			@data[:WALL_U_VALUE] 	= uValue[1].to_f
+		# Else use a lookup on the walls material description
 		else
 			wallType = reference.wallTypes.find{|wData|
 				@data[:WALLS_DESCRIPTION].downcase.match(wData[:"Wall Type"].downcase) && 
 				@data[:WALLS_DESCRIPTION].downcase.match(wData[:Insulation].downcase)
 			}
+			# If you can't find a material, fail gracefully
 			unless wallType
 				@corrupt = "Error: Couldn't match construction type"
 				return	
 			end
-
+			# Define wall U-Value
 			@data[:WALL_U_VALUE] = wallType[ageBand.to_sym]
-
 		end
 		
-		@data[:MAIN_HEATING_CONTROLS] 	= 0 if @data[:MAIN_HEATING_CONTROLS].nil?
+		##
+		# Do thermal bridging 
+		##
+		# Find the thermal bridging reference and 
 		@data[:THERMAL_BRIDGING_FACTOR]	= reference.thermalBData.find{|tbData| tbData[:LABEL] == @data[:AGE_LABEL]}[:FACTOR]
+
+		##
+		# Do heating controls. (only sanitises the field. Full feature
+		# built elsewhere.
+		#
+		# Note: There's a reference table with all control measures
+		#		split by the control description. But, they don't
+		#		have much effect on the model accuracy
+		##
+		# Set heating controls to zero if there's none defined
+		@data[:MAIN_HEATING_CONTROLS] 	= 0 if @data[:MAIN_HEATING_CONTROLS].nil?
+
 		
-		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
-		factor = case @data[:GLAZED_AREA]
-		when /much less/i
-			-1.4
-		when /less/i
-			-1.25
-		when /normal/i
-			1.0
-		when /much more/i
-			1.4
-		when /more/i
-			1.25	
-		else
-			0
-		end
-		#Identify building type
-		if @data[:PROPERTY_TYPE].match(/house|bungalow/i)
-			@data[:WINDOW_AREA] = area * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
-		else
-			@data[:WINDOW_AREA] = area * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
-		end 
 		
 		@data[:WAR] = 1 - @data[:WINDOW_AREA].to_f / @data[:TOTAL_FLOOR_AREA]
 		if @data[:WAR].nan?

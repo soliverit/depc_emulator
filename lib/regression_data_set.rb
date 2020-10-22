@@ -494,9 +494,15 @@ class RegressionDataSet
 		@features.map{|feature| feature}
 	end
 	##
-	# Random sort the data
+	# Random sort the data (deprecated: seriously "randomSort" wtf?)
 	##
 	def randomSort
+		shuffle
+	end
+	##
+	# Shuffle the records
+	##
+	def shuffle
 		@data = []
 		@hashedData.sort{Random.rand <=> Random.rand}
 		@hashedData.each{|data|	@data.push @features.map{|feature| data[feature] }}
