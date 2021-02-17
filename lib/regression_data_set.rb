@@ -38,7 +38,7 @@ class RegressionDataSet
 	@@fillCSVBlanks 		= true
 	@@skipCSVBlanks			= false
 	##
-	#
+	# Discounted payback
 	##
 	def self.dpp expenditure, inCash, rate, fallbackValue=-10
 		return fallbackValue if inCash <= 0
@@ -48,7 +48,7 @@ class RegressionDataSet
 	# Parse Through CSV-gem
 	##
 	def self.parseGemCSV path
-		csv = CSV.read(path, 'r:bom|utf-8')
+		csv = CSV.read(path)
 		output = self.new false, csv[0].map{|column| column.to_sym}
 		i = 0
 		while (i += 1) < csv.length
@@ -155,42 +155,6 @@ class RegressionDataSet
 		file.close
 	end
 	##
-	# Normalise a passed value
-	#
-	# val:		Value to be normalised
-	# min:		Minimum value in the value's set
-	# max:		Maximum value n the value's set
-	#
-	# Output:	Normalised value. Float
-	##
-	def self.normaliseValue val, min, max
-		val == 0 ? 0 : (val - min) /( max - min)  
-	end
-	##
-	# Invert normalisation
-	#
-	# Output:	Inverse of a hopefully normalised value. Numeric
-	##
-	def self.inverseNormaliseValue val, min, max
-		1 - (val - min) / (max - min)
-	end
-	##
-	# Normalise an array
-	#
-	# arr:		Array, hopefully of numeric values otherwise it's not goin' to go well
-	#
-	# Output:	Normalised Array
-	##
-	def self.normaliseArray arr
-		min = 99999999999999999999999999
-		max = 0
-		arr.each{|value| 
-			min = value if value < min
-			max = value if value > max
-		}
-		arr.map{|value|  self.normaliseValue(value.to_f, min.to_f, max.to_f)}
-	end
-	##
 	# data:		Base data set, either nil, Array[] or Array[Hash]
 	# features:	Feature labels for data. Array[Symbol]
 	#
@@ -235,7 +199,7 @@ class RegressionDataSet
 	##
 	# Add unique index or greedy unique 
 	##
-	def addIndex feature, warning = false
+	def addIndex feature
 		feature = feature.to_sym
 		@indices[feature] = {}
 		@hashedData.each{|data|
@@ -711,43 +675,6 @@ class RegressionDataSet
 		else
 			@normalise ? normalisedData : @data
 		end
-	end
-	##
-	# Normalise value
-	#
-	# PROBABLY DOESN'T WORK: Need to know what from and to are about
-	#
-	# TODO: Transfer to Class method, perhaps on the Base class?????????
-	##
-	def self.normalise val, key
-		# (val - @featureBounds[key][:min]) * (toHigh - toLow) / (fromHigh - fromLow).to_f
-		(val - @featureBounds[key][:min]) * (@featureBounds[key][:max] - @featureBounds[key][:min]) / (@featureBounds[key][:max] - @featureBounds[key][:min]).to_f
-	end
-	##
-	# Get a normalised version of @hashedData
-	#
-	# Output:	Hash identical to @hashedData but normalised
-	#
-	# Notes:
-	#	- Wonder if this is an actual normalisation method, look into it
-	#	- Wouldn't use this just now!!!!!
-	##
-	def normalisedHash
-		return @normalisedHash if @normalisedHash
-		output = []
-		# i = 0
-		@hashedData.each{|entry|
-			normalisedEntry = {}
-			@features.each{|feature|
-				if @hashedData.first[feature].class != String
-					normalisedEntry[feature] = self.class.normaliseValue entry[feature], @featureBounds[feature][:min], @featureBounds[feature][:max]
-				else
-					normalisedEntry[feature] = entry[feature]
-				end
-			}
-			output.push normalisedEntry
-		}
-		@normalisedHash = output
 	end
 	##
 	# Generate feature boundaries summary from set
