@@ -48,7 +48,7 @@ class RegressionDataSet
 	# Parse Through CSV-gem
 	##
 	def self.parseGemCSV path
-		csv = CSV.read(path)
+		csv = CSV.parse(File.open(path, "r:bom|utf-8"))
 		output = self.new false, csv[0].map{|column| column.to_sym}
 		i = 0
 		while (i += 1) < csv.length
