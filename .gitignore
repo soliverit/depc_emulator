@@ -1,1 +1,3 @@
 lib_py*
+*.txt
+!domestic_Features.txt
