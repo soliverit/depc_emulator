@@ -1,46 +1,49 @@
+### Includes ###
+## Native
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
+## Project
+from lib_py.region	import Region
 class RegionMap():
 	def __init__(self):
-		self.polylines		= []
+		self.regions		= {}
 		self.convexHulls	= False
-	def addPolyline(self, shape):
-		self.polylines.append(shape)
-	def drawPolylines(self):
-		for polyline in self.polylines:
-			# Open polylines technically have a start and end point, with vertices in between
-			for idx in range(len(polyline.vertices) - 1):	
-				vertex1	= polyline.vertices[idx]
-				vertex2	= polyline.vertices[idx + 1]
-				plt.plot([vertex1["x"], vertex2["x"]], [vertex1["y"], vertex2["y"]], linestyle="-", marker = "o")
+	def addRegion(self, regionCode):
+		print(regionCode)
+		self.regions[regionCode]	= Region(regionCode)
+	def drawRegions(self):
+		for alias, region in self.regions.items():
+			plt.plot(region.pointXValues, region.pointYValues, linestyle="-", marker = "o")
 		plt.show()
-	def drawConvexHulls(self):
-		if not self.convexHulls:
-			self.createConvexHulls()
-			print("SHOE")
-		for hullAlias in list(self.convexHulls):
-			hull 		= self.convexHulls[hullAlias]
-			vertices	= {"x": [], "y": []}
-			for simplex in hull.simplices:	
-				print(simplex[0])
-				vertices["x"].append(simplex[0])
-				vertices["y"].append(simplex[1])
-			for idx in range(len(vertices["x"]) - 1):
-				plt.plot([vertices["x"][idx], vertices["x"][idx + 1]], [vertices["y"][idx], vertices["y"][idx + 1]], linestyle="-", marker = "o")
-		plt.show()
-	def createConvexHulls(self):
-		pointSets	= {}
+	def allPoints(self, filter=False):
+		points = []
 		for polyline in self.polylines:
-			alias	= polyline.alias[0:2]
-			if alias not in pointSets:
-				pointSets[alias] = []
-			for vertex in polyline.vertices:
-				pointSets[alias].append([vertex["x"], vertex["y"]])
-		hulls	= {}
-		for alias in list(pointSets):
-			hulls[alias] = ConvexHull(pointSets[alias])
+			if filter and  filter not in polyline.alias:
+				continue
+			for point in polyline.vertices:
+				points.append(point)
+		return points
 			
-		self.convexHulls	= hulls
+	def drawConvexHulls(self, withPoints=False):
+		for alias, region in self.regions.items():
+			print(alias)
+			plt.plot(region.convexHullXValues, region.convexHullYValues, linestyle='-', marker="x")
+			if withPoints:
+				for point in region.points:
+					plt.plot(point["x"], point["y"], linestyle="-")
+		plt.show()
+	# def createConvexHulls(self):
+		# pointSets	= {}
+		# for polyline in self.polylines:
+			# alias	= polyline.alias[0:2]
+			# if alias not in pointSets:
+				# pointSets[alias] = []
+			# for vertex in polyline.vertices:
+				# pointSets[alias].append([vertex["x"], vertex["y"]])
+		# hulls	= {}
+		# for alias in list(pointSets):
+			# hulls[alias] = ConvexHull(pointSets[alias])
+			
+		# self.convexHulls	= hulls
 		
 		# for ax in (ax1, ax2):
 			# ax.plot(points[:, 0], points[:, 1], '.', color='k')
