@@ -1,3 +1,4 @@
 *__pycache__*
 *.txt
+*.sql
 !domestic_Features.txt
