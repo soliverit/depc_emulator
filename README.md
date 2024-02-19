@@ -8,7 +8,7 @@ depc.rb: Script for translating single climate region datasets from https:/opend
 The emulator takes the CSV output format from Open Data Communities and translates each entry into a set of features which enable reasonable existing energy efficiency prediction.
 
 ### Performance
-Results shown are from transferrig the training data created by depc.rb to Python for scikit-learn's gradient boosting decision trees. The Ruby sandbox uses EPSRegressor which performs slightly lower.
+Results are from transferring training data created by depc.rb to Python for scikit-learn's gradient boosting decision trees. The Ruby sandbox uses EPSRegressor which performs marginally lower.
 
 #### v0.1.2 (using sckit-learn GradientBoostingRegressor and https://github.com/soliverit/scikit_hp_tuner)
 
