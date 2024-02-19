@@ -27,7 +27,7 @@ class ErrorInformation
 	# @bestPrediction:	Prediction object with the lowest absolute error
 	# @predictionIndex:	The Prediction.predictionSet[] index the values are based on
 	##
-	def initialize pIndex, min, max, negativeMin, negativeMax, absMin, absMax,relErr, rmse, simple, mae, perMin, perMax, worstPrediction, bestPrediction, pass, fail
+	def initialize pIndex, min, max, negativeMin, negativeMax, absMin, absMax,relErr, rmse, simple, mae, perMin, perMax, worstPrediction, bestPrediction, pass, fail, r2
 		@min				= min
 		@max				= max
 		@negativeMin		= negativeMin
@@ -44,6 +44,7 @@ class ErrorInformation
 		@bestPrediction 	= bestPrediction
 		@pass				= pass
 		@fail				= fail
+		@r2					= r2
 		@predictionIndex	= pIndex
 	end
 	##
@@ -111,16 +112,19 @@ class ErrorInformation
 		print(LRPrintHelper.pad (@max + @negativeMax).abs.round(3))
 		print("\n--- Totals ---\n")
 		print(LRPrintHelper.pad "Average")
-		print(LRPrintHelper.pad @simple.round(3))
+		print(LRPrintHelper.pad @simple.round(4).to_s)
 		print("\n")
 		print(LRPrintHelper.pad "MAE")
-		print(LRPrintHelper.pad @mae.round(3))
+		print(LRPrintHelper.pad @mae.round(4).to_s)
 		print("\n")
 		print(LRPrintHelper.pad "RMSE")
-		print(LRPrintHelper.pad @rmse.round(3))
+		print(LRPrintHelper.pad @rmse.round(4).to_s)
 		print("\n")
 		print(LRPrintHelper.pad "RMAE")
-		print(LRPrintHelper.pad @mare.round(3))
+		print(LRPrintHelper.pad @mare.round(4).to_s)
+		print("\n")
+		print(LRPrintHelper.pad "r²")
+		print(LRPrintHelper.pad @r2.round(4).to_s)
 		if @pass
 			print("\n--- Classifer score ---\n")
 			print(LRPrintHelper.pad "Passed")
