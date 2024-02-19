@@ -78,6 +78,16 @@ class Prediction
 		(error(id) < 0 ? -1 : 1) * (100 - (@expected / prediction(id) * 100))
 	end
 	##
+	# Get the squared error (residual square)
+	#
+	# id:		prediction ID for individual output from @machine
+	#
+	# Output:	Numeric . errror ^ 2
+	##
+	def errorSquared id = 0
+		error(id) ** 2
+	end
+	##
 	# How many predictions are there?
 	#
 	# Output:	Number of predictions in the prediction set.

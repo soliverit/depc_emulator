@@ -140,6 +140,9 @@ class PredictionSet
 		perMin 	=  @@defaultHighValue
 		perMax	= 0
 		relErr 	= 0
+		rss		= 0
+		tss		= 0
+		actMean	= @set.sum{|prediction| prediction.expected} / @set.length
 		worstPrediction = @set.first
 		bestPrediction	= @set.first
 		pass	= @predictor.isClassifier? ?  0 : false
@@ -164,11 +167,14 @@ class PredictionSet
 			tempErr = prediction.error(id)
 			rmse	+= tempErr ** 2
 			simple	+= tempErr
+			rss		+= prediction.errorSquared
+			tss		+= (prediction.expected - actMean) ** 2
 		}
-		relErr /= @set.length
-		simple = 0 if simple == @@defaultHighValue
-		fail = @predictor.isClassifier? ? @set.length - pass : false
-		@error = ErrorInformation.new id, min, max, negMin, negMax, absMin, absMax, relErr, (rmse / @set.length) ** 0.5, simple / @set.length, mae / @set.length, perMin, perMax, worstPrediction, bestPrediction, pass, fail
+		r2		= 1 - rss / tss
+		relErr	/= @set.length
+		simple 	= 0 if simple == @@defaultHighValue
+		fail 	= @predictor.isClassifier? ? @set.length - pass : false
+		@error 	= ErrorInformation.new id, min, max, negMin, negMax, absMin, absMax, relErr, (rmse / @set.length) ** 0.5, simple / @set.length, mae / @set.length, perMin, perMax, worstPrediction, bestPrediction, pass, fail, r2
 	end
 	##
 	# Print helper. Prints out some generic information about the set
