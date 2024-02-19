@@ -1,5 +1,5 @@
 # RdSAP domestic EPC emulator (prototype)
-An estimator domestic EPC ratings from data limited to those available from inputs retrievable from output certificates
+An estimator for English domestic EPCs built on the publically available survey data from the UK government's Open Data Communities.
 
 ### Features
 depc.rb: Script for translating single climate region datasets from https:/opendatacommunities.org England and Wales domestic EPC register and generating a Gradient Boosting Regressor model through OllieMl's EPS (https://github.com/ankane/eps) wrapper
@@ -18,7 +18,7 @@ Results are from transferring training data created by depc.rb to Python for sci
   **RMSE**: 4.26 **MAE**:  3.06  **R²**:   0.869
   - **n_estimators**: 694, **learning_rate**: 0.0496, **min_samples_split**: 26, **min_samples_leaf**: 11, **min_weight_fraction_leaf**: 0.0133
 
-# Getting started with the sandbox environment
+# Getting started with the Ruby sandbox environment
 
 - Install Ruby > 2.4
 - Install the bundler gem `gem install bundler`
