@@ -90,6 +90,15 @@ class OllieMlSupervisedBase < OllieMlBase
 		@normaliser.fit(@trainingData.segregate(features).data)
 	end
 	##
+	# Save (abstract). Export model to save file
+	#
+	# Inputs:
+	#   path:       String path to export file
+	##
+	def save path
+	    raise "#{self.class.name} not trained"
+	end
+	##
 	# Normalise a 2D array 
 	##
 	def normaliseSet data
