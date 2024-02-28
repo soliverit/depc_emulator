@@ -12,7 +12,7 @@ class Building
 	QUALITY_FEATURES		= [:SHEATING_ENERGY_EFF, :HOT_WATER_ENERGY_EFF,						
 								:LIGHTING_ENERGY_EFF, :ROOF_ENERGY_EFF, 
 								:WALLS_ENERGY_EFF, :WINDOWS_ENERGY_EFF, 
-								:MAINHEAT_ENERGY_EFF]
+								:MAINHEAT_ENERGY_EFF, :MAINHEATC_ENV_EFF]
 	GLAZED_AREA_ENUMS	= ["NO DATA!","Less Than Typical", "Normal",
 						 "More Than Normal","Much More Than Normal"]
 	HEAT_LOSS_CORRIDOOR_ENUMS = [ "heated corridor", "unheated corridor"]
@@ -57,7 +57,7 @@ class Building
 	##
 	def extractFeatures features
 		Hash[features.map{|feature|
-			[ feature, send(feature)]
+			[ feature, @data[feature.to_sym] || send(feature)] 
 		}]
 	end
 	##
@@ -127,7 +127,7 @@ class Building
 		else
 			lowEnergyLigthingCorrection = 1
 		end
-		lighting = LIGHTING_GAINS_BASE	+ (@data[:TOTAL_FLOOR_AREA] * occupants) ** 0.4714 * lowEnergyLigthingCorrection # From SAP doc
+		@lighting	= LIGHTING_GAINS_BASE	+ (@data[:TOTAL_FLOOR_AREA] * occupants) ** 0.4714 * lowEnergyLigthingCorrection # From SAP doc
 	end
 	# From Table 1b SAP doc
 	def occupants
@@ -143,13 +143,13 @@ class Building
 	### Age stuff ###
 	def findAge
 		@foundAge ||= reference.ageBandDataSet.find{|ageData| 
-			@data[:CONSTRUCTION_AGE_BAND].match(ageData[:LABEL].to_s)
+			@data[:CONSTRUCTION_AGE_BAND].to_s.match(ageData[:LABEL].to_s)
 		}
 	end
 
 	##
 	# Stuff that's unaviodable for the first versino 
-	# of the building
+	# of the buildingfMAIN_HEATING_CONTROLS
 	##
 	def doBuildingStates
 	
@@ -220,6 +220,8 @@ class Building
 		##
 		# Do floor level features
 		##
+		@data[:IS_BASEMENT]	= 0
+		@data[:IS_ROOF]		= 0
 		case @data[:FLOOR_LEVEL].to_s
 		when /basement/i
 			@data[:IS_BASEMENT] = 1
@@ -304,7 +306,7 @@ class Building
 		# Do windows
 		##
 		# Find RdSAP windows parameters reference
-		windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
+		@windowFuncParams = reference.windowParams.find{|wData|wData[:LABEL] == ageBand}
 		factor = case @data[:GLAZED_AREA]
 		
 		##
@@ -325,10 +327,11 @@ class Building
 		end
 		#Identify building type, use it with the glazing lookup to calculate window area
 		if @data[:PROPERTY_TYPE].match(/house|bungalow/i)
-			@data[:WINDOW_AREA] = area * windowFuncParams[:house] + windowFuncParams[:house_plus] * factor
+ 			 @data[:WINDOW_AREA] = area * @windowFuncParams[:house] + @windowFuncParams[:house_plus] * factor
 		else
-			@data[:WINDOW_AREA] = area * windowFuncParams[:flat] + windowFuncParams[:flat_plus] * factor
+			@data[:WINDOW_AREA] = area * @windowFuncParams[:flat] + @windowFuncParams[:flat_plus] * factor
 		end 
+		@data[:MULTI_GLAZE_PROPORTION] = 0 if @data[:MULTI_GLAZE_PROPORTION].class == "".class
 		
 		###
 		# Do envelop materials stuff. the SAP reference
@@ -409,7 +412,10 @@ class Building
 		#		have much effect on the model accuracy
 		##
 		# Set heating controls to zero if there's none defined
-		@data[:MAIN_HEATING_CONTROLS] 	= 0 if @data[:MAIN_HEATING_CONTROLS].nil?
+		if @data[:MAIN_HEATING_CONTROLS].class == "".class
+			@corrupt = true
+			return
+		end
 
 		##
 		# Window to floor area ratio.
@@ -435,6 +441,14 @@ class Building
 		QUALITY_FEATURES.each{|qFeature|
 			@data[qFeature] = QUALITY_ENUMS.find_index @data[qFeature]
 		}
+		##
+		# Lodgement date 
+		##
+		@data[:LODGEMENT_DATE]	= @data[:LODGEMENT_DATE].match(/2\d\d\d$/).to_s
+		if !@data[:LODGEMENT_DATE]
+			@corrupt	= true
+			return
+		end
 		##
 		# Finally, do open fire places
 		##
@@ -570,7 +584,7 @@ class Building
 	# Get Bool is top storey flat
 	##
 	def isTopStoreyFlat?
-		@data[:IS_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY].downcase == "y" ? 1 : 0
+		@data[:IS_TOP_STOREY] ||= @data[:FLAT_TOP_STOREY]..to_s.downcase == "y" ? 1 : 0
 	end
 	##
 	#  Get Bool is a basement flat
@@ -582,7 +596,7 @@ class Building
 	# Get Bool heating outlets have TRVs
 	##
 	def trvs?
-		@data[:TEMP_ADJUSTMENT] != 0 && @data[:HEATING_CONTROL_INDEX] != 2
+		(@data[:TEMP_ADJUSTMENT] != 0 && @data[:HEATING_CONTROL_INDEX] != 2) ? 1 : 0
 	end
 	##
 	# Get floating point temperature adjustment for heating control set up
@@ -880,13 +894,24 @@ class Building
 	# On-site solar panels
 	##
 	def photoSupply
-		@data[:PHOTO_SUPPLY_FLAG] ||= @data[:PHOTO_SUPPLY].to_s.match(/\d/) ? 1 : 0
+		if ! @data[:PHOTO_SUPPLY].to_s.match(/\d/)
+			@data[:PHOTO_SUPPLY_FLAG] 	||= @data[:PHOTO_SUPPLY].to_s.match(/\d/).to_i 
+		else
+			@data[:PHOTO_SUPPLY] 		||= 0
+		end
 	end
 	####
 	# Setters
 	##
 	# Set heating control index (for retrofitting)
 	def setHeatingContronIndex value
+		i = 1
+		f = 1.0
+		if value.class == 1.0.class || value.class !=  1.class
+			@data
+			puts value
+			exit
+		end
 		@data[:HEATING_CONTROL_INDEX] = value
 	end
 	##
