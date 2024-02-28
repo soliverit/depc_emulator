@@ -12,7 +12,7 @@ Lpr.p "MESSAGE FROM XGBoost!!! At some point you need to alias a predict method
 so you don't need a conditional check on every prediction. predict(input) calls predict_it
 or something like that"
 class XGB < OllieMlSupervisedBase
-	DEFAULT_PARAMETERS = {objective: "reg:squarederror", type: XGBoost::Regressor}
+	DEFAULT_PARAMETERS = {objective: "reg:squarederror", type: XGBoost::Classifier}
 	def initialize data, target, parameters
 		super data, target, parameters
 		DEFAULT_PARAMETERS.each{|key, value| @parameters[key] ||= value}
@@ -24,8 +24,10 @@ class XGB < OllieMlSupervisedBase
 		@trainingData.retrieveFeatureAsArray @target
 	end
 	def train
-		data	= XGBoost::DMatrix.new(trainingData, label: trainingTargets)
-		@lr		= @parameters[:type].new 
+		data		= XGBoost::DMatrix.new(trainingData, label: trainingTargets)
+		constructor	= @parameters[:type]
+		@parameters.delete :type
+		@lr			= constructor.new @parameters
 		@lr.fit(trainingData, trainingTargets)
 	end
 	def translateFeatureInput input
