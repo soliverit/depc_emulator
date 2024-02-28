@@ -16,6 +16,21 @@ class EPSRegressor < OllieMlSupervisedBase
 		true
 	end
 	##
+    # Load model .pmml
+    ##
+    def self.load path
+        eps     = Eps::Model.load_pmml File.read(path)
+        model   = self.new false, :LOADED_MODEL, {}
+        model.setModel eps
+        model
+    end
+    def setModel model
+        @lr = model
+    end
+    def load model
+
+    end
+	##
 	# data:				RegressionDataSet
 	# target:			Target name. Symbol
 	#
@@ -26,17 +41,24 @@ class EPSRegressor < OllieMlSupervisedBase
 	def initialize data, target, parameters
 		super(data, target, parameters)
 	end
+	##
+	# Save overridden / abstract
+	##
+	def save path
+	    File.write path, @lr.to_pmml
+	end
 	def normaliseSet data
-		featureList = features
 		@trainingData.apply{|data|
-			puts "SHOE"
 			@normaliser.transform([features.map{|feature| data[feature]}]).to_aeach_with_index{|value, idx|			
 				data[features[idx]] = value
 			}
 		}
 	end
 	def train 
-		@lr ||= Eps::Model.new(@trainingData.getDataStructure(useHash), target: @target)
+		@lr ||= Eps::Model.new(@trainingData.getDataStructure(useHash), 
+			target: @target, 
+			learning_rate:0.05
+		)
 	end
 	##
 	# OVERRIDDEN!
