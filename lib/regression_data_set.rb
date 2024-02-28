@@ -53,7 +53,7 @@ class RegressionDataSet
 		i = 0
 		while (i += 1) < csv.length
 			csv[i].map!{|value|
-				if value && value.match(/^-?\d+(\.\d+)?/)
+				if value && value.match(/^-?\d+(\.\d+)?$/)
 					value.match(/\./) ? value.to_f : value.to_i
 				else
 					value.to_s
@@ -270,6 +270,26 @@ class RegressionDataSet
 		}
 	end
 	##
+	# Find strings
+	#
+	# The cells with strings.
+	#
+	# Output:	Array of {row:<int> feature<sym>, value:<string>}
+	##
+	def findStrings
+		outputs	= []
+		i		= 0
+		each{|record|
+			record.keys.each{|key|
+				if record[key].class == "".class
+					outputs.push({row: i, feature: key, value: record[key]})
+				end
+				i += 1
+			}
+		}
+		outputs
+	end
+	##
 	# Generate an Array of data sets, grouped by the passed key
 	#
 	# key:		Feature name Symbol identifying the group by property
@@ -468,7 +488,7 @@ class RegressionDataSet
 	##
 	def shuffle
 		@data = []
-		@hashedData.sort{Random.rand <=> Random.rand}
+		@hashedData.sort!{Random.rand <=> Random.rand}
 		@hashedData.each{|data|	@data.push @features.map{|feature| data[feature] }}
 	end
 	##
@@ -542,11 +562,9 @@ class RegressionDataSet
 	##
 	def join rgDataSet
 		rgDataSet.features.map{|feature| @features.push(feature) if ! @features.include?(feature)}
-		rgDataSet.data.each_with_index{|data, index|
-			rgDataSet.features.each_with_index{|feature, fIndex|
-				@data[index][@features.find_index feature] = data[fIndex]
-				@hashedData[index][feature] = data[fIndex]
-			}
+		rgDataSet.hashedData.each_with_index{|data|
+            push data.clone
+
 		}
 		nil
 	end
@@ -880,6 +898,28 @@ class RegressionDataSet
 	#
 	# Convert unique values into labels 
 	##
+	def catify feature
+		@catKeys[feature] 	= []
+		distinct(feature).each{|dFeature, idx| 
+			newFeature	= (feature.to_s + "_" + dFeature[feature].to_s).to_sym
+			@catKeys[feature].push newFeature
+			injectFeatureByFunction(newFeature){|data| 
+				begin
+				@featureBounds[feature][:min] = 0
+				rescue
+					puts feature
+					exit
+				end
+				@featureBounds[feature][:max] = 0
+				data[feature] == dFeature[feature] ? 1 : 0
+			}
+		}
+	end
+	##
+	# Catify column
+	#
+	# Convert unique values into labels 
+	##
 	def enumerate feature
 		@catKeys[feature] 	= []
 		distinct(feature).data.each{|dFeature|@catKeys[feature].push dFeature[0]}
@@ -907,13 +947,16 @@ class RegressionDataSet
 	##
 	def shuffleFeatures featureSet
 		featureSet.each{|feature|
-			featureIDX	= features.find_index feature
-			temp 		= []
-			@hashedData.each{|data|	temp.push data[feature]}
-			temp.shuffle.each_with_index{|value, idx|
-				@hashedData[idx][feature] 	= value
-				@data[idx][featureIDX]		= value
-			}
+			shuffleFeature
+		}
+	end
+	def shuffleFeature feature
+		featureIDX	= features.find_index feature
+		temp 		= []
+		@hashedData.each{|data|	temp.push data[feature]}
+		temp.shuffle.each_with_index{|value, idx|
+			@hashedData[idx][feature] 	= value
+			@data[idx][featureIDX]		= value
 		}
 	end
 	##
