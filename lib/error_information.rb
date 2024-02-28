@@ -6,7 +6,7 @@ require "active_support"
 class ErrorInformation 
 	attr_reader :predictionIndex, :min, :max, :negativeMin, :negativeMax, 
 				:absMin, :absMax, :rmse, :simple, :mae, :worstPrediction, 
-				:bestPrediction, :perMin, :perMax, :pass, :fail
+				:bestPrediction, :perMin, :perMax, :pass, :fail, :r2
 	cattr_accessor :bestWorstPrint, :bestWorstFeatures
 	### Print the details of the best and worst Predictions in printOut
 	@@bestWorstPrint 	= false
