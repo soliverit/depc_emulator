@@ -10,7 +10,7 @@ The emulator takes the CSV output format from Open Data Communities and translat
 ### Performance
 Results are from transferring training data created by depc.rb to Python for scikit-learn's gradient boosting decision trees. The Ruby sandbox uses EPSRegressor which performs marginally lower.
 
-#### v2 (using sckit-learn GradientBoostingRegressor and https://github.com/soliverit/scikit_hp_tuner)
+#### v2
 
   **RMSE**: 3.437 **MAE**:  2.34  **R²**:   0.924
 
